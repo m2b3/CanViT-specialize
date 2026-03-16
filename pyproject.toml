@@ -1,0 +1,46 @@
+[project]
+name = "canvit-probes"
+version = "0.1.0"
+description = "Probe definitions, training, and HuggingFace integration for CanViT"
+requires-python = ">=3.12"
+dependencies = [
+    "torch>=2.0.0",
+    "huggingface-hub>=0.20.0",
+    "safetensors>=0.4.0",
+]
+
+[project.optional-dependencies]
+# Training requires more deps than just loading probes
+train = [
+    "canvit",
+    "torchvision>=0.15.0",
+    "tyro>=1.0.0",
+    "tqdm>=4.60.0",
+    "pillow>=10.0.0",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.build.targets.wheel]
+packages = ["canvit_probes"]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.2",
+    "pytest-cov>=7.0.0",
+    "ruff>=0.14.14",
+]
+
+[tool.pytest.ini_options]
+pythonpath = ["."]
+
+[tool.ruff]
+line-length = 120
+
+[tool.uv.sources]
+canvit = { git = "ssh://git@github.com/yberreby/CanViT-PyTorch-Next.git", branch = "main" }

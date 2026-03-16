@@ -1,0 +1,56 @@
+"""Segmentation probe: LN -> BN -> Dropout -> Conv1x1.
+
+Architecture follows DINOv3. Loadable from HuggingFace Hub.
+
+Usage:
+    probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s512-c32-in21k")
+    logits = probe(features)  # [B, H, W, D] -> [B, num_classes, H, W]
+"""
+
+import torch.nn as nn
+import torch.nn.functional as F
+from huggingface_hub import PyTorchModelHubMixin
+from torch import Tensor
+
+
+class SegmentationProbe(
+    nn.Module,
+    PyTorchModelHubMixin,
+    library_name="canvit",
+):
+    """Linear segmentation probe on spatial features.
+
+    Input: [B, H, W, D] spatial features (canvas or DINOv3 patches).
+    Output: [B, num_classes, H, W] logits.
+    """
+
+    def __init__(
+        self,
+        embed_dim: int,
+        num_classes: int,
+        dropout: float = 0.1,
+        use_ln: bool = True,
+    ) -> None:
+        super().__init__()
+        self.embed_dim = embed_dim
+        self.num_classes = num_classes
+        self.ln = nn.LayerNorm(embed_dim) if use_ln else nn.Identity()
+        self.bn = nn.BatchNorm2d(embed_dim)
+        self.dropout = nn.Dropout2d(dropout)
+        self.conv = nn.Conv2d(embed_dim, num_classes, kernel_size=1)
+        nn.init.normal_(self.conv.weight, mean=0, std=0.01)
+        nn.init.constant_(self.conv.bias, 0)
+
+    def forward(self, x: Tensor) -> Tensor:
+        """[B, H, W, D] -> [B, num_classes, H, W]."""
+        B, H, W, D = x.shape
+        assert D == self.embed_dim, f"Expected embed_dim={self.embed_dim}, got {D}"
+        x = self.ln(x)
+        x = x.permute(0, 3, 1, 2).contiguous()
+        x = self.dropout(x)
+        x = self.bn(x)
+        return self.conv(x)
+
+    def predict(self, x: Tensor, target_size: tuple[int, int]) -> Tensor:
+        """Forward + bilinear upsample to target resolution."""
+        return F.interpolate(self(x), size=target_size, mode="bilinear", align_corners=False)
