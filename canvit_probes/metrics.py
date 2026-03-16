@@ -31,6 +31,11 @@ class IoUAccumulator:
             self.intersection[cls] += (p_cls & t_cls).sum()
             self.union[cls] += (p_cls | t_cls).sum()
 
+    def reset(self) -> None:
+        """Zero all counters (call between validation epochs)."""
+        self.intersection.zero_()
+        self.union.zero_()
+
     def compute(self) -> float:
         """Global mIoU. GPU sync happens here."""
         iou = self.intersection / (self.union + 1e-8)
