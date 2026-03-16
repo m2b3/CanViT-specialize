@@ -15,7 +15,7 @@ from torch import Tensor
 from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES
 from canvit_probes.training.ade20k.config import CanvasFeatureType
 from canvit_probes.training.ade20k.features import CanvasFeatures
-from canvit_pretrain.train.viz.image import imagenet_denormalize
+from canvit_utils.transforms import imagenet_denormalize
 
 
 class ProbeStateLike(Protocol):
