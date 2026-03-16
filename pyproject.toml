@@ -5,8 +5,11 @@ description = "Probe definitions, training, and HuggingFace integration for CanV
 requires-python = ">=3.12"
 dependencies = [
     "torch>=2.0.0",
+    "torchvision>=0.15.0",
+    "pillow>=10.0.0",
     "huggingface-hub>=0.20.0",
     "safetensors>=0.4.0",
+    "timm>=1.0.0",
 ]
 
 [project.optional-dependencies]
