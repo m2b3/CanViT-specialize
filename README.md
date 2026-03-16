@@ -5,11 +5,7 @@ Probe definitions, datasets, metrics, and training for CanViT frozen-feature eva
 ## Installation
 
 ```bash
-# Probe loading only (minimal deps: torch + huggingface-hub):
 uv add canvit-probes
-
-# With training support:
-uv add "canvit-probes[train]"
 ```
 
 ## Usage
@@ -43,7 +39,7 @@ uv run pypatree
 
 | Repo | Role |
 |------|------|
-| [CanViT-PyTorch](https://github.com/m2b3/CanViT-PyTorch) | Core model |
+| [CanViT-PyTorch-Next](https://github.com/yberreby/CanViT-PyTorch-Next) (private) | Core model (`canvit` package) |
 | [CanViT-eval](https://github.com/m2b3/CanViT-eval) | Evaluation (uses probes) |
 | [CanViT-pretrain](https://github.com/m2b3/CanViT-pretrain) | Model pretraining |
 | [CanViT-Toward-AVFMs](https://github.com/m2b3/CanViT-Toward-AVFMs) | Paper |
