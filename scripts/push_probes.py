@@ -62,7 +62,7 @@ _MODEL_SHORT: dict[str, str] = {
 }
 
 
-def _make_repo_id(owner: str, config: dict, is_dinov3: bool) -> str:
+def _make_repo_id(owner: str, config: dict, is_dinov3: bool, *, probe_name: str) -> str:
     """Derive HF repo ID from checkpoint metadata.
 
     Format:
@@ -89,7 +89,7 @@ def _make_repo_id(owner: str, config: dict, is_dinov3: bool) -> str:
         assert scene is not None, f"No scene_size in config: {sorted(config)}"
         canvas_grid = config.get("canvas_grid")
         assert canvas_grid is not None, (
-            f"canvas_grid not in config for {probe_path.name}. "
+            f"canvas_grid not in config for {probe_name}. "
             f"canvas_grid is independent of scene_size — cannot be derived."
         )
         return f"{owner}/probe-ade20k-{steps_k}k-s{scene}-c{canvas_grid}-{short}"
@@ -116,7 +116,7 @@ def main(args: Args) -> None:
             log.info("  SKIP %s (max_steps=%s, want 40000)", d.name, max_steps)
             continue
 
-        repo_id = _make_repo_id(args.owner, config, is_dinov3)
+        repo_id = _make_repo_id(args.owner, config, is_dinov3, probe_name=d.name)
 
         # Infer architecture from state_dict
         sd = raw["probe_state_dict"]
