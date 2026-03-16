@@ -5,16 +5,10 @@ This module provides eval-specific helpers that depend on IoUAccumulator.
 """
 
 import torch.nn as nn
-import torch.nn.functional as F
 from torch import Tensor
 
 from canvit_probes.metrics import IoUAccumulator
-
-
-def _upsample_preds(preds: Tensor, H: int, W: int) -> Tensor:
-    if preds.shape[1:] == (H, W):
-        return preds
-    return F.interpolate(preds.unsqueeze(1).float(), (H, W), mode="nearest").squeeze(1).long()
+from canvit_probes.training.ade20k.loss import upsample_preds
 
 
 def eval_probe_on_batch(
@@ -25,5 +19,5 @@ def eval_probe_on_batch(
 ) -> None:
     """Forward probe, upsample predictions, update IoU accumulator."""
     logits = probe(features.float())
-    preds_up = _upsample_preds(logits.argmax(1), masks.shape[1], masks.shape[2])
+    preds_up = upsample_preds(logits.argmax(1), masks.shape[1], masks.shape[2])
     iou.update(preds_up, masks)
