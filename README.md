@@ -26,11 +26,11 @@ logits = probe(features)
 
 ## Available probes
 
-All probes are on HuggingFace under the `canvit/` organization.
-List available probes:
-```bash
-# Via HuggingFace CLI
-huggingface-cli repo list canvit --filter probe
+All probes are on HuggingFace under the `canvit/` organization (private).
+Browse at https://huggingface.co/canvit or list via API:
+```python
+from huggingface_hub import HfApi
+[m.id for m in HfApi().list_models(author="canvit") if "probe" in m.id]
 ```
 
 ## Architecture
