@@ -1,10 +1,8 @@
-"""ADE20K probe training.
-
-Evaluation is now in the canvit-eval repo (~/code/CanViT-eval).
+"""ADE20K probe training (CanViT canvas probes + DINOv3 baseline probes).
 
 Usage:
-    python -m canvit_eval.ade20k train ...              # CanViT canvas probes
-    python -m canvit_eval.ade20k train-dinov3-probe ... # DINOv3 baseline probe
+    uv run python -m canvit_probes.training.ade20k train ...
+    uv run python -m canvit_probes.training.ade20k train-dinov3-probe ...
 """
 
 from typing import Annotated
