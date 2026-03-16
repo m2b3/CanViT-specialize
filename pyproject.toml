@@ -38,6 +38,7 @@ dev = [
 
 [tool.pytest.ini_options]
 pythonpath = ["."]
+filterwarnings = ["ignore:Failed to initialize NumPy:UserWarning"]
 
 [tool.ruff]
 line-length = 120
