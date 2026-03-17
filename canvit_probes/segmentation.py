@@ -1,4 +1,4 @@
-"""Segmentation probe: LN -> BN -> Dropout -> Conv1x1.
+"""Segmentation probe: LN -> Dropout -> BN -> Conv1x1.
 
 Architecture follows DINOv3. Loadable from HuggingFace Hub.
 
