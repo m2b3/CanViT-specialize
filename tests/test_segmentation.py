@@ -37,7 +37,8 @@ def test_state_dict_roundtrip() -> None:
     probe2 = SegmentationProbe(embed_dim=1024, num_classes=150, dropout=0.1)
     probe2.load_state_dict(sd)
     x = torch.randn(1, 32, 32, 1024)
-    probe.eval(); probe2.eval()
+    probe.eval()
+    probe2.eval()
     assert torch.allclose(probe(x), probe2(x))
 
 
