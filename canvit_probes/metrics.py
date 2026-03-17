@@ -18,7 +18,8 @@ class IoUAccumulator:
 
     def update(self, preds: Tensor, targets: Tensor) -> None:
         """Accumulate from [B, H, W] predictions and targets."""
-        assert preds.shape == targets.shape
+        assert preds.ndim == 3, f"Expected [B, H, W], got shape {preds.shape}"
+        assert preds.shape == targets.shape, f"Shape mismatch: {preds.shape} vs {targets.shape}"
         for i in range(preds.shape[0]):
             self._update_single(preds[i], targets[i])
 
