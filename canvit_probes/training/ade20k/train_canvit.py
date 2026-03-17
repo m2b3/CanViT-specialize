@@ -28,6 +28,8 @@ from torch.optim import AdamW
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 
+from canvit_probes.training.ade20k.viz import log_viz
+
 from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES, ADE20kDataset, make_val_transforms
 from canvit_probes.training.ade20k.eval_utils import eval_probe_on_batch
 from canvit_probes import SegmentationProbe
@@ -292,8 +294,6 @@ def train(cfg: Config) -> None:
 
         # === Visualization ===
         if step % cfg.viz_every == 0:
-            from canvit_probes.training.ade20k.viz import log_viz  # lazy: break circular import
-
             viz_start = time.perf_counter()
             for p in probes.values():
                 p.head.eval()
