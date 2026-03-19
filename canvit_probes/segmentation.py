@@ -39,6 +39,7 @@ class SegmentationProbe(
         self.dropout = nn.Dropout2d(dropout)
         self.conv = nn.Conv2d(embed_dim, num_classes, kernel_size=1)
         nn.init.normal_(self.conv.weight, mean=0, std=0.01)
+        assert self.conv.bias is not None
         nn.init.constant_(self.conv.bias, 0)
 
     def forward(self, x: Tensor) -> Tensor:

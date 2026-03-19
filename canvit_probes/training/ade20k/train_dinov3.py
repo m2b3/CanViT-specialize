@@ -146,6 +146,7 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
                         viz_feats, viz_images, viz_masks = feats, vi, vm
 
             if do_viz and viz_feats is not None:
+                assert viz_images is not None and viz_masks is not None
                 log_probe_viz(exp, step, probe, viz_feats, viz_images, viz_masks, cfg.viz_samples)
 
             miou = val_iou.compute()

@@ -1,5 +1,6 @@
 """Visualization for ADE20K probe training (canvas and single-probe)."""
 
+from collections.abc import Mapping
 from pathlib import Path
 from typing import Protocol
 
@@ -61,7 +62,7 @@ def correctness_map(pred: np.ndarray, gt: np.ndarray) -> np.ndarray:
 
 
 def make_viz_figure(
-    probes: dict[CanvasFeatureType, ProbeStateLike],
+    probes: Mapping[CanvasFeatureType, ProbeStateLike],
     feats: CanvasFeatures,
     images: Tensor,
     masks: Tensor,
@@ -140,7 +141,7 @@ def make_viz_figure(
 def log_viz(
     exp: comet_ml.Experiment,
     step: int,
-    probes: dict[CanvasFeatureType, ProbeStateLike],
+    probes: Mapping[CanvasFeatureType, ProbeStateLike],
     feats: CanvasFeatures,
     images: Tensor,
     masks: Tensor,

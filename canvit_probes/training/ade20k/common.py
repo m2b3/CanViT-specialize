@@ -16,7 +16,8 @@ def make_ade20k_loaders(cfg: ProbeTrainBase) -> tuple[DataLoader, DataLoader]:
     _train_aug = make_segmentation_train_transforms(
         img_size=cfg.scene_size,
         random_img_size_ratio_range=list(cfg.aug_scale_range),
-        crop_size=(cfg.scene_size, cfg.scene_size),
+        # Upstream annotation is Tuple[int] but implementation expects (H, W).
+        crop_size=(cfg.scene_size, cfg.scene_size),  # pyright: ignore[reportArgumentType]
         flip_prob=cfg.aug_flip_prob,
         reduce_zero_label=True,
     )
@@ -57,7 +58,7 @@ def make_optimizer_and_scheduler(
     return optimizer, scheduler
 
 
-def make_amp_ctx(amp: bool, device: torch.device) -> torch.amp.autocast:
+def make_amp_ctx(amp: bool, device: torch.device) -> torch.autocast:
     """Create autocast context for mixed-precision training."""
     amp_dtype = torch.bfloat16 if amp else torch.float32
     return torch.autocast(device_type=device.type, dtype=amp_dtype, enabled=amp)

@@ -9,7 +9,7 @@ Results are ONLY comparable across models using the same resize_mode.
 
 from collections.abc import Callable
 from pathlib import Path
-from typing import Literal
+from typing import Literal, cast
 
 import torch
 from PIL import Image
@@ -68,9 +68,9 @@ class ADE20kDataset(torch.utils.data.Dataset):
             img_t, mask_t = self._joint_transform(img, mask)
         else:
             assert self._img_transform is not None and self._mask_transform is not None
-            img_t = self._img_transform(img)
+            img_t = cast(Tensor, self._img_transform(img))
             # Masks: subtract 1 (ADE20K uses 1-indexed classes, 0 = ignore)
-            mask_t = self._mask_transform(mask).squeeze(0).long() - 1
+            mask_t = cast(Tensor, self._mask_transform(mask)).squeeze(0).long() - 1
             mask_t[mask_t < 0] = IGNORE_LABEL
         return img_t, mask_t
 

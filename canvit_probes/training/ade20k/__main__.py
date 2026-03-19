@@ -5,7 +5,7 @@ Usage:
     uv run python -m canvit_probes.training.ade20k train-dinov3-probe ...
 """
 
-from typing import Annotated
+from typing import Annotated, Union
 
 import tyro
 
@@ -14,12 +14,16 @@ from canvit_probes.training.ade20k.train_dinov3 import train as run_train_dinov3
 from canvit_probes.training.ade20k.train_canvit import train as run_train
 from canvit_probes.training.ade20k.config import Config as TrainConfig
 
+# tyro subcommand unions: valid at runtime, but basedpyright can't resolve
+# Union[Annotated[...]] as TypeForm.
+_Command = Union[
+    Annotated[TrainConfig, tyro.conf.subcommand("train")],
+    Annotated[DINOv3ProbeTrainConfig, tyro.conf.subcommand("train-dinov3-probe")],
+]
+
 
 def main() -> None:
-    cmd = tyro.cli(
-        Annotated[TrainConfig, tyro.conf.subcommand("train")]
-        | Annotated[DINOv3ProbeTrainConfig, tyro.conf.subcommand("train-dinov3-probe")]
-    )
+    cmd: TrainConfig | DINOv3ProbeTrainConfig = tyro.cli(_Command)  # pyright: ignore[reportCallIssue,reportArgumentType]
     match cmd:
         case TrainConfig():
             run_train(cmd)
