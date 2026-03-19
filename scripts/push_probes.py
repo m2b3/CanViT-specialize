@@ -11,19 +11,16 @@ Usage:
     uv run python scripts/push_all_probes.py --probe-dir /path/to/probes --dry-run
 """
 
-import json
 import logging
 import re
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 import torch
 import tyro
-from huggingface_hub import HfApi
-from safetensors.torch import save_file
 
 from canvit_probes import SegmentationProbe
+from scripts.upload_utils import upload_probe_to_hub
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -145,15 +142,11 @@ def main(args: Args) -> None:
             "metadata": meta,
         }
 
-        with tempfile.TemporaryDirectory() as tmpdir:
-            tmppath = Path(tmpdir)
-            (tmppath / "config.json").write_text(json.dumps(hf_config, indent=2, default=str))
-            save_file(probe.state_dict(), tmppath / "model.safetensors")
-            api = HfApi()
-            api.create_repo(repo_id, private=True, exist_ok=True)
-            api.upload_folder(folder_path=tmpdir, repo_id=repo_id)
-
-        log.info("    pushed")
+        upload_probe_to_hub(
+            state_dict=probe.state_dict(),
+            config=hf_config,
+            repo_id=repo_id,
+        )
         del probe
 
     log.info("Done.")
