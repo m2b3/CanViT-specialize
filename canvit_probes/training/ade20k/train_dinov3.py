@@ -17,15 +17,12 @@ import torch.nn as nn
 import torch.nn.functional as F
 import tyro
 from canvit_utils.teacher import DINOv3Teacher, load_teacher
-from dinov3.eval.segmentation.schedulers import WarmupOneCycleLR
-from dinov3.eval.segmentation.transforms import make_segmentation_train_transforms
-from torch.optim import AdamW
-from torch.utils.data import DataLoader
 from tqdm import tqdm
 
-from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES, ADE20kDataset, make_val_transforms
+from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES
 from canvit_probes.training.ade20k.eval_utils import eval_probe_on_batch
 from canvit_probes import SegmentationProbe
+from canvit_probes.training.ade20k.common import make_ade20k_loaders, make_amp_ctx, make_optimizer_and_scheduler
 from canvit_probes.training.ade20k.config import ProbeTrainBase
 from canvit_probes.training.ade20k.loss import ce_loss, upsample_preds
 from canvit_probes.training.ade20k.viz import log_probe_viz
@@ -75,18 +72,9 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
 
     # Probe (no LN needed — teacher features are already post-LN)
     probe = SegmentationProbe(embed_dim=teacher.embed_dim, num_classes=NUM_CLASSES, dropout=cfg.dropout, use_ln=False).to(device)
-    optimizer = AdamW(probe.parameters(), lr=cfg.peak_lr, weight_decay=cfg.weight_decay)
-    scheduler = WarmupOneCycleLR(
-        optimizer,
-        max_lr=cfg.peak_lr,
-        total_steps=cfg.max_steps,
-        warmup_iters=cfg.warmup_steps,
-        warmup_ratio=cfg.warmup_lr_ratio,
-        pct_start=0,
-        anneal_strategy="cos",
-        final_div_factor=float("inf"),
-        use_beta1=False,
-        update_momentum=False,
+    optimizer, scheduler = make_optimizer_and_scheduler(
+        probe.parameters(), lr=cfg.peak_lr, weight_decay=cfg.weight_decay,
+        max_steps=cfg.max_steps, warmup_steps=cfg.warmup_steps, warmup_lr_ratio=cfg.warmup_lr_ratio,
     )
     log.info(f"  probe params: {sum(p.numel() for p in probe.parameters()):,}")
 
@@ -96,25 +84,7 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
     best_miou = 0.0
 
     # Data
-    _train_aug = make_segmentation_train_transforms(
-        img_size=cfg.scene_size,
-        random_img_size_ratio_range=list(cfg.aug_scale_range),
-        crop_size=(cfg.scene_size, cfg.scene_size),
-        flip_prob=cfg.aug_flip_prob,
-        reduce_zero_label=True,
-    )
-
-    def train_transform(img, mask):
-        img_t, mask_t = _train_aug(img, mask)
-        return img_t, mask_t.squeeze(0)
-
-    train_ds = ADE20kDataset(root=cfg.ade20k_root, split="training", joint_transform=train_transform)
-    val_img_tf, val_mask_tf = make_val_transforms(cfg.scene_size, "squish")
-    val_ds = ADE20kDataset(root=cfg.ade20k_root, split="validation", img_transform=val_img_tf, mask_transform=val_mask_tf)
-    train_loader = DataLoader(
-        train_ds, cfg.batch_size, shuffle=True, num_workers=cfg.num_workers, pin_memory=True, drop_last=True
-    )
-    val_loader = DataLoader(val_ds, cfg.eval_batch_size, num_workers=cfg.num_workers, pin_memory=True)
+    train_loader, val_loader = make_ade20k_loaders(cfg)
 
     # Comet
     exp = comet_ml.Experiment(project_name=cfg.comet_project, workspace=cfg.comet_workspace)
@@ -137,8 +107,7 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
         run_dir.mkdir(parents=True, exist_ok=True)
         log.info(f"Checkpoints: {run_dir}")
 
-    amp_dtype = torch.bfloat16 if cfg.amp else torch.float32
-    amp_ctx = torch.autocast(device_type=device.type, dtype=amp_dtype, enabled=cfg.amp)
+    amp_ctx = make_amp_ctx(cfg.amp, device)
 
     log.info("=" * 60)
     log.info("Starting training...")
