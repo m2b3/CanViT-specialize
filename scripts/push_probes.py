@@ -8,7 +8,7 @@ Naming convention (derived from checkpoint metadata, never hardcoded):
   DINOv3 probes:  canvit/probe-ade20k-{steps}k-{model_slug}-{resolution}px
 
 Usage:
-    uv run python scripts/push_all_probes.py --probe-dir /path/to/probes --dry-run
+    uv run python scripts/push_probes.py --probe-dir /path/to/probes --dry-run
 """
 
 import logging

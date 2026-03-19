@@ -4,7 +4,7 @@ Handles both canvas probe and DINOv3 probe checkpoint formats.
 Infers all params from the checkpoint — nothing hardcoded.
 
 Usage:
-    uv run python scripts/push_probes.py \
+    uv run python scripts/push_probe.py \
         --probe path/to/best.pt \
         --repo-id canvit/probe-ade20k-dinov3-vitb16-512px-40k \
         --dry-run
