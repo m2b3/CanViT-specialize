@@ -7,8 +7,8 @@ from datetime import UTC, datetime
 from typing import Any, Literal
 
 import torch
-from canvit import Viewpoint
-from canvit.policies import coarse_to_fine_viewpoints, random_viewpoints
+from canvit_pytorch import Viewpoint
+from canvit_pytorch.policies import coarse_to_fine_viewpoints, random_viewpoints
 
 ViewpointPolicyName = Literal["coarse_to_fine", "random", "full_then_random"]
 

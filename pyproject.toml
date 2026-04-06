@@ -4,7 +4,7 @@ version = "0.1.0"
 description = "Probe definitions, training, and HuggingFace integration for CanViT"
 requires-python = ">=3.12"
 dependencies = [
-    "canvit",
+    "canvit-pytorch",
     "dinov3",
     "torch>=2.0.0",
     "torchvision>=0.15.0",
@@ -50,5 +50,5 @@ typeCheckingMode = "standard"
 line-length = 120
 
 [tool.uv.sources]
-canvit = { git = "ssh://git@github.com/yberreby/CanViT-PyTorch-Next.git", branch = "main" }
+canvit-pytorch = { git = "ssh://git@github.com/yberreby/CanViT-PyTorch-Next.git", branch = "main" }
 dinov3 = { git = "https://github.com/yberreby/dinov3.git" }

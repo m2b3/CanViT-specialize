@@ -2,7 +2,7 @@
 
 from dataclasses import dataclass, field
 
-from canvit import CanViTForPretrainingHFHub, Viewpoint, sample_at_viewpoint
+from canvit_pytorch import CanViTForPretrainingHFHub, Viewpoint, sample_at_viewpoint
 from torch import Tensor
 
 from canvit_probes.training.ade20k.config import CanvasFeatureType

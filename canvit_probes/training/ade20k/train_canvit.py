@@ -19,7 +19,7 @@ import comet_ml
 import torch
 import torch.nn as nn
 import tyro
-from canvit import CanViTForPretrainingHFHub
+from canvit_pytorch import CanViTForPretrainingHFHub
 from canvit_utils.teacher import load_teacher
 from torch import Tensor
 from tqdm import tqdm
