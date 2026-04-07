@@ -20,7 +20,7 @@ import torch
 import torch.nn as nn
 import tyro
 from canvit_pytorch import CanViTForPretrainingHFHub
-from canvit_utils.teacher import load_teacher
+from canvit_pytorch.teacher import load_teacher
 from torch import Tensor
 from tqdm import tqdm
 

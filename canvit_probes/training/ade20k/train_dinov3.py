@@ -16,7 +16,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import tyro
-from canvit_utils.teacher import DINOv3Teacher, load_teacher
+from canvit_pytorch.teacher import DINOv3Teacher, load_teacher
 from tqdm import tqdm
 
 from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES
