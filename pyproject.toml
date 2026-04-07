@@ -50,5 +50,5 @@ typeCheckingMode = "standard"
 line-length = 120
 
 [tool.uv.sources]
-canvit-pytorch = { git = "ssh://git@github.com/yberreby/CanViT-PyTorch-Next.git", branch = "main" }
+canvit-pytorch = { git = "https://github.com/m2b3/CanViT-PyTorch.git" }
 dinov3 = { git = "https://github.com/yberreby/dinov3.git" }
