@@ -119,7 +119,7 @@ dev = [
 [[package]]
 name = "canvit-pytorch"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/yberreby/CanViT-PyTorch-Next.git?branch=main#16f55ed8c2a621a9fcdcb8ca50b851bcea77e0e2" }
+source = { git = "ssh://git@github.com/yberreby/CanViT-PyTorch-Next.git?branch=main#6ecf95a27bcc71a8638e394bf2a08ed0d4cfb0bd" }
 dependencies = [
     { name = "dinov3-in1k-probes" },
     { name = "huggingface-hub" },
