@@ -26,7 +26,7 @@ from canvit_probes.training.ade20k.common import make_ade20k_loaders, make_amp_c
 from canvit_probes.training.ade20k.config import ProbeTrainBase
 from canvit_probes.training.ade20k.loss import ce_loss, upsample_preds
 from canvit_probes.training.ade20k.viz import log_probe_viz
-from canvit_probes.metrics import IoUAccumulator
+from canvit_probes.metrics import mIoUAccumulator
 
 log = logging.getLogger(__name__)
 
@@ -79,8 +79,8 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
     log.info(f"  probe params: {sum(p.numel() for p in probe.parameters()):,}")
 
     # IoU
-    val_iou = IoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device)
-    train_iou = IoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device)
+    val_iou = mIoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device)
+    train_iou = mIoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device)
     best_miou = 0.0
 
     # Data
