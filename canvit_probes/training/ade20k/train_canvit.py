@@ -41,10 +41,31 @@ from canvit_probes.training.ade20k.state import ProbeState
 log = logging.getLogger(__name__)
 
 
-def _make_probe(name: str, dim: int, cfg: Config, device: torch.device, *, use_ln: bool) -> ProbeState:
-    head = SegmentationProbe(embed_dim=dim, num_classes=NUM_CLASSES, dropout=cfg.dropout, use_ln=use_ln).to(device)
+def _make_probe(
+    name: str,
+    dim: int,
+    cfg: Config,
+    device: torch.device,
+    *,
+    use_ln: bool,
+    init_from_repo: str | None = None,
+    extra_params: list | None = None,
+) -> ProbeState:
+    """Build a probe head + its optimizer.
+
+    init_from_repo: HF Hub repo ID to load probe weights from (for LP-FT).
+    extra_params: additional params to include in the optimizer (e.g. backbone
+        params during finetuning). Uses the same LR as the head.
+    """
+    if init_from_repo:
+        head = SegmentationProbe.from_pretrained(init_from_repo).to(device)
+    else:
+        head = SegmentationProbe(embed_dim=dim, num_classes=NUM_CLASSES, dropout=cfg.dropout, use_ln=use_ln).to(device)
+    params = list(head.parameters())
+    if extra_params is not None:
+        params = list(extra_params) + params
     opt, scheduler = make_optimizer_and_scheduler(
-        head.parameters(), lr=cfg.peak_lr, weight_decay=cfg.weight_decay,
+        params, lr=cfg.peak_lr, weight_decay=cfg.weight_decay,
         max_steps=cfg.max_steps, warmup_steps=cfg.warmup_steps, warmup_lr_ratio=cfg.warmup_lr_ratio,
     )
     return ProbeState(name, head, opt, scheduler)
@@ -58,7 +79,13 @@ def _save_probe_checkpoint(
     cfg: Config,
     *,
     is_best: bool,
+    model: CanViTForPretrainingHFHub | None = None,
 ) -> Path:
+    """Save probe head + (optional) backbone state for finetune mode.
+
+    For frozen probe training, only the probe head changes — model is None.
+    For finetune mode, pass the backbone model so its weights are saved too.
+    """
     t_last = cfg.n_timesteps - 1
     miou = probe.best_last_miou
     prefix = f"{feat_type}_best_t{t_last}_miou{miou:.4f}_step{step}" if is_best else f"{feat_type}_final_step{step}"
@@ -72,6 +99,8 @@ def _save_probe_checkpoint(
         "best_mious_per_t": probe.best_mious,
         "config": asdict(cfg),
     }
+    if model is not None:
+        data["model_state_dict"] = model.state_dict()
     run_dir.mkdir(parents=True, exist_ok=True)
 
     if is_best:
@@ -119,31 +148,28 @@ def train(cfg: Config) -> None:
     log.info(f"  scene: {cfg.scene_size}px, canvas: {canvas_grid}x{canvas_grid}, glimpse: {cfg.glimpse_px}px")
 
     # Probes
-    dims = get_feature_dims(model.canvas_dim, teacher.embed_dim)
+    dims = get_feature_dims(canvas_dim=model.canvas_dim, teacher_dim=teacher.embed_dim)
     if cfg.finetune:
         assert len(cfg.features) == 1, "Fine-tuning supports one feature type (backbone is shared)"
-        feat = cfg.features[0]
-        if cfg.init_probe_repo:
-            head = SegmentationProbe.from_pretrained(cfg.init_probe_repo).to(device)
-            log.info(f"  probe[{feat}]: loaded from {cfg.init_probe_repo}")
-        else:
-            head = SegmentationProbe(embed_dim=dims[feat], num_classes=NUM_CLASSES,
-                                     dropout=cfg.dropout, use_ln=CANVAS_FEATURES[feat].needs_ln).to(device)
-        all_params = list(model.parameters()) + list(head.parameters())
-        opt, sched = make_optimizer_and_scheduler(
-            all_params, lr=cfg.peak_lr, weight_decay=cfg.weight_decay,
-            max_steps=cfg.max_steps, warmup_steps=cfg.warmup_steps, warmup_lr_ratio=cfg.warmup_lr_ratio,
+    extra_params = list(model.parameters()) if cfg.finetune else None
+    init_from_repo = cfg.init_probe_repo if cfg.finetune else None
+    probes: dict[CanvasFeatureType, ProbeState] = {
+        feat: _make_probe(
+            name=feat, dim=dims[feat], cfg=cfg, device=device,
+            use_ln=CANVAS_FEATURES[feat].needs_ln,
+            init_from_repo=init_from_repo,
+            extra_params=extra_params,
         )
-        probes: dict[CanvasFeatureType, ProbeState] = {feat: ProbeState(feat, head, opt, sched)}
-        log.info(f"  optimizer: {sum(p.numel() for p in all_params) / 1e6:.1f}M total params (backbone + head)")
-    else:
-        probes: dict[CanvasFeatureType, ProbeState] = {
-            feat: _make_probe(feat, dims[feat], cfg, device, use_ln=CANVAS_FEATURES[feat].needs_ln)
-            for feat in cfg.features
-        }
+        for feat in cfg.features
+    }
     for feat, probe in probes.items():
         probe.init_best_mious(cfg.n_timesteps)
-        log.info(f"  probe[{feat}]: dim={dims[feat]}, params={sum(p.numel() for p in probe.head.parameters()):,}")
+        loaded_msg = f" (loaded from {init_from_repo})" if init_from_repo else ""
+        log.info(f"  probe[{feat}]: dim={dims[feat]}, params={sum(p.numel() for p in probe.head.parameters()):,}{loaded_msg}")
+    if cfg.finetune:
+        feat = cfg.features[0]
+        n_total = sum(p.numel() for g in probes[feat].optimizer.param_groups for p in g['params'])
+        log.info(f"  optimizer: {n_total / 1e6:.1f}M total params (backbone + head)")
 
     # IoU metrics
     val_iou = {
@@ -192,6 +218,14 @@ def train(cfg: Config) -> None:
     train_iter = iter(train_loader)
     pbar = tqdm(total=cfg.max_steps, desc="Training")
     val_viz_batch: tuple[Tensor, Tensor, CanvasFeatures] | None = None
+
+    # Per-group grad norm accumulator, only populated in finetune mode.
+    # Tracks pre-clip backbone vs head L2 norms for diagnostic logging.
+    finetune_norm_acc = {
+        "backbone": torch.zeros((), device=device),
+        "head": torch.zeros((), device=device),
+        "count": 0,
+    }
 
     while step < cfg.max_steps:
         try:
@@ -248,7 +282,10 @@ def train(cfg: Config) -> None:
                 exp.log_curve(f"{feat_type}/val_miou_curve", x=list(range(cfg.n_timesteps)), y=mious, step=step)
 
                 if improved and run_dir:
-                    _save_probe_checkpoint(run_dir, feat_type, probes[feat_type], step, cfg, is_best=True)
+                    _save_probe_checkpoint(
+                        run_dir, feat_type, probes[feat_type], step, cfg,
+                        is_best=True, model=model if cfg.finetune else None,
+                    )
 
             val_time = time.perf_counter() - val_start
             log.info(f"Step {step}: validation took {val_time:.1f}s")
@@ -280,7 +317,17 @@ def train(cfg: Config) -> None:
             losses = [ce_loss(logits, masks) for logits in logits_list]
             loss = torch.stack(losses).mean()
             loss.backward()
-            clip_params = list(model.parameters()) + list(probe.head.parameters()) if cfg.finetune else list(probe.head.parameters())
+            # In finetune mode, also measure pre-clip backbone vs head norms to
+            # diagnose which side dominates the gradient signal.
+            if cfg.finetune:
+                backbone_norm_only = nn.utils.clip_grad_norm_(model.parameters(), float("inf"))
+                head_norm_only = nn.utils.clip_grad_norm_(probe.head.parameters(), float("inf"))
+                finetune_norm_acc["backbone"] += backbone_norm_only.detach()
+                finetune_norm_acc["head"] += head_norm_only.detach()
+                finetune_norm_acc["count"] += 1
+                clip_params = list(model.parameters()) + list(probe.head.parameters())
+            else:
+                clip_params = list(probe.head.parameters())
             grad_norm = nn.utils.clip_grad_norm_(clip_params, cfg.grad_clip)
             probe.optimizer.step()
             probe.scheduler.step()
@@ -317,6 +364,13 @@ def train(cfg: Config) -> None:
                 avg_loss, avg_grad = p.get_and_reset()
                 log_dict[f"{name}/loss"] = avg_loss
                 log_dict[f"{name}/grad_norm"] = avg_grad
+            if cfg.finetune and finetune_norm_acc["count"] > 0:
+                n = finetune_norm_acc["count"]
+                log_dict["finetune/backbone_grad_norm"] = (finetune_norm_acc["backbone"] / n).item()
+                log_dict["finetune/head_grad_norm"] = (finetune_norm_acc["head"] / n).item()
+                finetune_norm_acc["backbone"].zero_()
+                finetune_norm_acc["head"].zero_()
+                finetune_norm_acc["count"] = 0
 
             log_curves = (step % cfg.val_every == 0)
             for feat_type in cfg.features:
@@ -333,7 +387,10 @@ def train(cfg: Config) -> None:
 
     if run_dir:
         for feat_type, probe in probes.items():
-            _save_probe_checkpoint(run_dir, feat_type, probe, step, cfg, is_best=False)
+            _save_probe_checkpoint(
+                run_dir, feat_type, probe, step, cfg,
+                is_best=False, model=model if cfg.finetune else None,
+            )
 
     log.info("=" * 60)
     log.info("Training complete. Best val mIoU per timestep:")
