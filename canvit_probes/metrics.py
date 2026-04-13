@@ -4,7 +4,7 @@ import torch
 from torch import Tensor
 
 
-class IoUAccumulator:
+class mIoUAccumulator:
     """Global mIoU: sum intersection/union across all images, then average over classes.
 
     Uses histc-based counting (DINOv3 approach) — no GPU sync until compute().

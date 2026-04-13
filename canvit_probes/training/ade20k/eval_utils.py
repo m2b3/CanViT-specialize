@@ -1,13 +1,13 @@
 """Segmentation probe utilities for ADE20K evaluation.
 
 The probe class (SegmentationProbe) lives in canvit-probes package.
-This module provides eval-specific helpers that depend on IoUAccumulator.
+This module provides eval-specific helpers that depend on mIoUAccumulator.
 """
 
 import torch.nn as nn
 from torch import Tensor
 
-from canvit_probes.metrics import IoUAccumulator
+from canvit_probes.metrics import mIoUAccumulator
 from canvit_probes.training.ade20k.loss import upsample_preds
 
 
@@ -15,7 +15,7 @@ def eval_probe_on_batch(
     probe: nn.Module,
     features: Tensor,
     masks: Tensor,
-    iou: IoUAccumulator,
+    iou: mIoUAccumulator,
 ) -> None:
     """Forward probe, upsample predictions, update IoU accumulator."""
     logits = probe(features.float())
