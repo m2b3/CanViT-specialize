@@ -49,16 +49,25 @@ def _make_probe(
     *,
     use_ln: bool,
     init_from_repo: str | None = None,
-    extra_params: list | None = None,
+    extra_params: list[nn.Parameter] | None = None,
 ) -> ProbeState:
     """Build a probe head + its optimizer.
 
     init_from_repo: HF Hub repo ID to load probe weights from (for LP-FT).
+        When set, `dim`, `dropout`, and `use_ln` are unused — the loaded
+        probe's saved config is authoritative. The first forward will assert
+        that the loaded probe's embed_dim matches the actual feature dim.
     extra_params: additional params to include in the optimizer (e.g. backbone
         params during finetuning). Uses the same LR as the head.
     """
     if init_from_repo:
         head = SegmentationProbe.from_pretrained(init_from_repo).to(device)
+        if head.embed_dim != dim:
+            raise ValueError(
+                f"Loaded probe {init_from_repo} has embed_dim={head.embed_dim}, "
+                f"but model produces features with dim={dim}. Probe trained for a "
+                f"different model variant?"
+            )
     else:
         head = SegmentationProbe(embed_dim=dim, num_classes=NUM_CLASSES, dropout=cfg.dropout, use_ln=use_ln).to(device)
     params = list(head.parameters())
@@ -151,6 +160,12 @@ def train(cfg: Config) -> None:
     dims = get_feature_dims(canvas_dim=model.canvas_dim, teacher_dim=teacher.embed_dim)
     if cfg.finetune:
         assert len(cfg.features) == 1, "Fine-tuning supports one feature type (backbone is shared)"
+    elif cfg.init_probe_repo is not None:
+        raise ValueError(
+            f"--init-probe-repo={cfg.init_probe_repo!r} is set but --finetune is not. "
+            f"Loading a pretrained probe only makes sense in finetune mode (LP-FT). "
+            f"Pass --finetune to enable, or unset --init-probe-repo to train a fresh probe."
+        )
     extra_params = list(model.parameters()) if cfg.finetune else None
     init_from_repo = cfg.init_probe_repo if cfg.finetune else None
     probes: dict[CanvasFeatureType, ProbeState] = {
@@ -165,11 +180,10 @@ def train(cfg: Config) -> None:
     for feat, probe in probes.items():
         probe.init_best_mious(cfg.n_timesteps)
         loaded_msg = f" (loaded from {init_from_repo})" if init_from_repo else ""
-        log.info(f"  probe[{feat}]: dim={dims[feat]}, params={sum(p.numel() for p in probe.head.parameters()):,}{loaded_msg}")
-    if cfg.finetune:
-        feat = cfg.features[0]
-        n_total = sum(p.numel() for g in probes[feat].optimizer.param_groups for p in g['params'])
-        log.info(f"  optimizer: {n_total / 1e6:.1f}M total params (backbone + head)")
+        n_head = sum(p.numel() for p in probe.head.parameters())
+        n_opt = sum(p.numel() for g in probe.optimizer.param_groups for p in g['params'])
+        opt_breakdown = f"backbone+head={n_opt:,}" if cfg.finetune else f"head={n_opt:,}"
+        log.info(f"  probe[{feat}]: dim={dims[feat]}, head_params={n_head:,}, optimizer={opt_breakdown}{loaded_msg}")
 
     # IoU metrics
     val_iou = {
