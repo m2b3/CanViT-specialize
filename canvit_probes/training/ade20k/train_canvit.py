@@ -29,7 +29,7 @@ from canvit_probes.training.ade20k.viz import log_viz
 from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES
 from canvit_probes.training.ade20k.eval_utils import eval_probe_on_batch
 from canvit_probes import SegmentationProbe
-from canvit_probes.metrics import IoUAccumulator
+from canvit_probes.metrics import mIoUAccumulator
 from canvit_probes.training.utils import make_viewpoints
 
 from canvit_probes.training.ade20k.common import make_ade20k_loaders, make_amp_ctx, make_optimizer_and_scheduler
@@ -173,11 +173,11 @@ def train(cfg: Config) -> None:
 
     # IoU metrics
     val_iou = {
-        feat: [IoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device) for _ in range(cfg.n_timesteps)]
+        feat: [mIoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device) for _ in range(cfg.n_timesteps)]
         for feat in cfg.features
     }
     train_iou = {
-        feat: [IoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device) for _ in range(cfg.n_timesteps)]
+        feat: [mIoUAccumulator(NUM_CLASSES, IGNORE_LABEL, device) for _ in range(cfg.n_timesteps)]
         for feat in cfg.features
     }
 

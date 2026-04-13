@@ -1,18 +1,18 @@
-"""Tests for IoUAccumulator — pure CPU, no dataset needed."""
+"""Tests for mIoUAccumulator — pure CPU, no dataset needed."""
 
 import torch
-from canvit_probes.metrics import IoUAccumulator
+from canvit_probes.metrics import mIoUAccumulator
 
 
 def test_perfect_predictions() -> None:
-    acc = IoUAccumulator(num_classes=3, ignore_index=255, device=torch.device("cpu"))
+    acc = mIoUAccumulator(num_classes=3, ignore_index=255, device=torch.device("cpu"))
     targets = torch.tensor([[[0, 1, 2, 0]]])  # [1, 1, 4]
     acc.update(targets, targets)
     assert acc.compute() > 0.99
 
 
 def test_reset_zeros_counters() -> None:
-    acc = IoUAccumulator(num_classes=3, ignore_index=255, device=torch.device("cpu"))
+    acc = mIoUAccumulator(num_classes=3, ignore_index=255, device=torch.device("cpu"))
     t = torch.tensor([[[0, 1, 2]]])  # [1, 1, 3]
     acc.update(t, t)
     assert acc.compute() > 0.99
@@ -22,7 +22,7 @@ def test_reset_zeros_counters() -> None:
 
 
 def test_ignore_index() -> None:
-    acc = IoUAccumulator(num_classes=3, ignore_index=255, device=torch.device("cpu"))
+    acc = mIoUAccumulator(num_classes=3, ignore_index=255, device=torch.device("cpu"))
     preds = torch.tensor([[[0, 1, 2, 0]]])  # [1, 1, 4]
     targets = torch.tensor([[[0, 1, 255, 0]]])
     acc.update(preds, targets)
