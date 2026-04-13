@@ -13,7 +13,7 @@ export ADE20K_ZIP=~/projects/def-skrishna/datasets/ade20k/ADEChallengeData2016.z
 # Storage
 export CHECKPOINTS_DIR=~/projects/def-skrishna/checkpoints
 
-# Comet
-if [ -f ~/comet_api_key.txt ]; then
-    export COMET_API_KEY=$(cat ~/comet_api_key.txt)
-fi
+# Credentials (optional). NOTE: every line must be safe under `set -e`.
+# A bare `cmd1 && cmd2` evaluating to false kills the shell. Use `if` or `|| true`.
+if [ -f ~/comet_api_key.txt ]; then export COMET_API_KEY=$(cat ~/comet_api_key.txt); fi
+if [ -f ~/hf_token.txt ]; then export HF_TOKEN=$(cat ~/hf_token.txt); fi
