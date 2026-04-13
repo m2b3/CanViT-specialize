@@ -100,10 +100,15 @@ def train(cfg: Config) -> None:
 
     # Model
     log.info("Loading model...")
-    model = CanViTForPretrainingHFHub.from_pretrained(cfg.model_repo).to(device).eval()
-    for p in model.parameters():
-        p.requires_grad_(False)
-    log.info(f"  params: {sum(p.numel() for p in model.parameters()) / 1e6:.1f}M")
+    model = CanViTForPretrainingHFHub.from_pretrained(cfg.model_repo).to(device)
+    if cfg.finetune:
+        model.train()
+        log.info(f"  FINETUNE mode: backbone trainable ({sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params)")
+    else:
+        model.eval()
+        for p in model.parameters():
+            p.requires_grad_(False)
+        log.info(f"  FROZEN mode: backbone frozen ({sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params)")
 
     teacher = load_teacher(cfg.teacher_repo, device)
     log.info(f"  teacher: {cfg.teacher_repo}, dim={teacher.embed_dim}")
@@ -115,10 +120,27 @@ def train(cfg: Config) -> None:
 
     # Probes
     dims = get_feature_dims(model.canvas_dim, teacher.embed_dim)
-    probes: dict[CanvasFeatureType, ProbeState] = {
-        feat: _make_probe(feat, dims[feat], cfg, device, use_ln=CANVAS_FEATURES[feat].needs_ln)
-        for feat in cfg.features
-    }
+    if cfg.finetune:
+        assert len(cfg.features) == 1, "Fine-tuning supports one feature type (backbone is shared)"
+        feat = cfg.features[0]
+        if cfg.init_probe_repo:
+            head = SegmentationProbe.from_pretrained(cfg.init_probe_repo).to(device)
+            log.info(f"  probe[{feat}]: loaded from {cfg.init_probe_repo}")
+        else:
+            head = SegmentationProbe(embed_dim=dims[feat], num_classes=NUM_CLASSES,
+                                     dropout=cfg.dropout, use_ln=CANVAS_FEATURES[feat].needs_ln).to(device)
+        all_params = list(model.parameters()) + list(head.parameters())
+        opt, sched = make_optimizer_and_scheduler(
+            all_params, lr=cfg.peak_lr, weight_decay=cfg.weight_decay,
+            max_steps=cfg.max_steps, warmup_steps=cfg.warmup_steps, warmup_lr_ratio=cfg.warmup_lr_ratio,
+        )
+        probes: dict[CanvasFeatureType, ProbeState] = {feat: ProbeState(feat, head, opt, sched)}
+        log.info(f"  optimizer: {sum(p.numel() for p in all_params) / 1e6:.1f}M total params (backbone + head)")
+    else:
+        probes: dict[CanvasFeatureType, ProbeState] = {
+            feat: _make_probe(feat, dims[feat], cfg, device, use_ln=CANVAS_FEATURES[feat].needs_ln)
+            for feat in cfg.features
+        }
     for feat, probe in probes.items():
         probe.init_best_mious(cfg.n_timesteps)
         log.info(f"  probe[{feat}]: dim={dims[feat]}, params={sum(p.numel() for p in probe.head.parameters()):,}")
@@ -147,6 +169,10 @@ def train(cfg: Config) -> None:
     exp.add_tag("canvas-probe")
     exp.add_tag(model_slug)
     exp.add_tag(f"s{cfg.scene_size}_c{canvas_grid}")
+    if cfg.finetune:
+        exp.add_tag("finetune")
+        if cfg.init_probe_repo:
+            exp.add_tag("lp-ft")
     log.info(f"Comet: {cfg.comet_workspace}/{cfg.comet_project}/{exp.get_key()} ({exp_name})")
 
     job_id = os.environ.get("SLURM_JOB_ID", "local")
@@ -178,6 +204,8 @@ def train(cfg: Config) -> None:
         # === Validation ===
         if step % cfg.val_every == 0:
             val_start = time.perf_counter()
+            if cfg.finetune:
+                model.eval()
             for p in probes.values():
                 p.head.eval()
             for feat in cfg.features:
@@ -227,6 +255,8 @@ def train(cfg: Config) -> None:
             exp.log_metric("timing/val_seconds", val_time, step=step)
 
         # === Training step ===
+        if cfg.finetune:
+            model.train()
         for p in probes.values():
             p.head.train()
 
@@ -250,7 +280,8 @@ def train(cfg: Config) -> None:
             losses = [ce_loss(logits, masks) for logits in logits_list]
             loss = torch.stack(losses).mean()
             loss.backward()
-            grad_norm = nn.utils.clip_grad_norm_(probe.head.parameters(), cfg.grad_clip)
+            clip_params = list(model.parameters()) + list(probe.head.parameters()) if cfg.finetune else list(probe.head.parameters())
+            grad_norm = nn.utils.clip_grad_norm_(clip_params, cfg.grad_clip)
             probe.optimizer.step()
             probe.scheduler.step()
             probe.accumulate(loss, grad_norm)

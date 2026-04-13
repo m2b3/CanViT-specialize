@@ -95,3 +95,7 @@ class Config(ProbeTrainBase):
     min_vp_scale: float = 0.05
     max_vp_scale: float = 1.0
     train_start_full: bool = False
+
+    # Fine-tuning (LP-FT: start from trained probe, unfreeze backbone)
+    finetune: bool = False
+    init_probe_repo: str | None = None  # HF repo to load pretrained probe head from
