@@ -49,6 +49,13 @@ typeCheckingMode = "standard"
 [tool.ruff]
 line-length = 120
 
+[[tool.uv.index]]
+name = "pytorch-cu128"
+url = "https://download.pytorch.org/whl/cu128"
+explicit = true
+
 [tool.uv.sources]
 canvit-pytorch = { git = "https://github.com/m2b3/CanViT-PyTorch.git" }
 dinov3 = { git = "https://github.com/yberreby/dinov3.git" }
+torch = { index = "pytorch-cu128" }
+torchvision = { index = "pytorch-cu128" }

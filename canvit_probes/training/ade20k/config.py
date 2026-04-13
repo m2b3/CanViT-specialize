@@ -98,4 +98,4 @@ class Config(ProbeTrainBase):
 
     # Fine-tuning (LP-FT: start from trained probe, unfreeze backbone)
     finetune: bool = False
-    init_probe_repo: str | None = None  # HF repo to load pretrained probe head from
+    init_probe_repo: str | None = None
