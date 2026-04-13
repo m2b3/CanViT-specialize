@@ -1,0 +1,19 @@
+# Nibi cluster environment variables.
+# Copy to .envrc: cp .envrc.nibi .envrc
+
+# Caches on scratch (NFS, persistent)
+export HF_HOME="$SCRATCH/.huggingface"
+export TORCH_HOME="$SCRATCH/.torch"
+export TORCH_COMPILE_CACHE_DIR="$SCRATCH/.torch_compile_cache"
+
+# Datasets
+export ADE20K_ZIP=~/projects/def-skrishna/datasets/ade20k/ADEChallengeData2016.zip
+# ADE20K_ROOT is set per-job by slurm/setup.sh after unzipping to $SLURM_TMPDIR.
+
+# Storage
+export CHECKPOINTS_DIR=~/projects/def-skrishna/checkpoints
+
+# Comet
+if [ -f ~/comet_api_key.txt ]; then
+    export COMET_API_KEY=$(cat ~/comet_api_key.txt)
+fi
