@@ -44,13 +44,17 @@ uv run python -m canvit_probes.training.ade20k train \
   --scene-size 1024 --canvas-grid 64 \
   --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
   --batch-size 16 --max-steps 40000 \
-  --warmup-steps 1500 --peak-lr 2.5e-5 --grad-clip 1.0
+  --warmup-steps 1500 --peak-lr 2.5e-5 --grad-clip 1.0 --weight-decay 1e-4
 ```
 
-Fine-tuning requires lower LR (backbone needs smaller updates than a fresh
-probe head) and finite grad clipping. Single feature type only (`canvas_hidden`
-by default) — the backbone is shared, so multi-probe fine-tuning would
-double-step it.
+Fine-tuning differs from frozen-probe training in three ways:
+- **Lower LR** (backbone is sensitive; 2.5e-5 vs 3e-4 for fresh probe).
+- **Lower weight decay** (1e-4 vs 1e-3) — aggressive WD can destabilize the
+  pretrained backbone.
+- **Finite grad clipping** (1.0 vs `inf`) — prevents catastrophic updates.
+
+Single feature type only (`canvas_hidden` by default) — the backbone is shared,
+so multi-probe fine-tuning would double-step it.
 
 ### DINOv3 baseline probe
 

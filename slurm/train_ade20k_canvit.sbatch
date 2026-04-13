@@ -14,11 +14,13 @@
 #   sbatch slurm/train_ade20k_canvit.sbatch \
 #     --scene-size 1024 --canvas-grid 64 --batch-size 16 --max-steps 40000
 #
-# Full fine-tuning (LP-FT) — start from converged frozen probe:
+# Full fine-tuning (LP-FT) — start from converged frozen probe.
+# Note: --weight-decay 1e-4 (10x lower than frozen probe default 1e-3) — high WD
+# can destabilize the backbone during FT (per IN1K FT precedent).
 #   sbatch slurm/train_ade20k_canvit.sbatch \
 #     --scene-size 1024 --canvas-grid 64 --batch-size 16 --max-steps 40000 \
 #     --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
-#     --peak-lr 2.5e-5 --grad-clip 1.0
+#     --peak-lr 2.5e-5 --grad-clip 1.0 --weight-decay 1e-4
 
 set -eux
 source slurm/setup.sh

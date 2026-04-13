@@ -134,7 +134,13 @@ def train(cfg: Config) -> None:
     log.info(f"Features: {cfg.features}")
     log.info(f"Timesteps: {cfg.n_timesteps}")
     log.info(f"Viewpoint: scale=[{cfg.min_vp_scale}, {cfg.max_vp_scale}], train_start_full={cfg.train_start_full}")
-    log.info(f"Training: BS={cfg.batch_size}, steps={cfg.max_steps}, LR={cfg.peak_lr}")
+    log.info(f"Training: BS={cfg.batch_size}, steps={cfg.max_steps}, LR={cfg.peak_lr}, WD={cfg.weight_decay}")
+    if cfg.finetune and cfg.weight_decay > 5e-4:
+        log.warning(
+            f"finetune mode with weight_decay={cfg.weight_decay} — this is the frozen-probe "
+            f"default and is typically too aggressive for full FT (can destabilize backbone "
+            f"weights, per IN1K FT precedent which used 1e-4). Consider --weight-decay 1e-4."
+        )
 
     # Model
     log.info("Loading model...")
