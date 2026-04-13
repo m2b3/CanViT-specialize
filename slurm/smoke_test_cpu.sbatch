@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=ade20k-smoke-cpu
-#SBATCH --account=def-skrishna
+#SBATCH --account=def-skrishna_cpu
 #SBATCH --time=00:15:00
 #SBATCH --cpus-per-task=4
 #SBATCH --mem=16G
