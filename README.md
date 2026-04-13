@@ -1,6 +1,6 @@
 # CanViT-probes
 
-Probe definitions, datasets, metrics, and training for CanViT frozen-feature evaluation.
+Probe definitions, datasets, metrics, and training for CanViT downstream evaluation.
 
 ## Installation
 
@@ -8,26 +8,79 @@ Probe definitions, datasets, metrics, and training for CanViT frozen-feature eva
 uv add canvit-probes
 ```
 
-## Usage
+## Using a pre-trained probe
 
 ```python
 from canvit_probes import SegmentationProbe
 
-# Load from HuggingFace Hub
-probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s512-c32-in21k")
+# Load from HuggingFace Hub (see "Available probes" below)
+probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s1024-c64-in21k")
 
 # Forward: [B, H, W, D] spatial features → [B, num_classes, H, W] logits
 logits = probe(features)
 ```
 
+## Training
+
+### ADE20K segmentation probe (frozen backbone)
+
+```bash
+export COMET_API_KEY=$(cat ~/comet_api_key.txt)
+export ADE20K_ROOT=/path/to/ADEChallengeData2016
+
+uv run python -m canvit_probes.training.ade20k train \
+  --scene-size 1024 --canvas-grid 64 \
+  --batch-size 16 --max-steps 40000 \
+  --warmup-steps 1500 --peak-lr 3e-4
+```
+
+### ADE20K full fine-tuning (LP-FT)
+
+Initialize from a converged frozen probe, then unfreeze the CanViT backbone
+and continue training jointly (Kumar et al. ICLR 2022):
+
+```bash
+uv run python -m canvit_probes.training.ade20k train \
+  --scene-size 1024 --canvas-grid 64 \
+  --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
+  --batch-size 16 --max-steps 40000 \
+  --warmup-steps 1500 --peak-lr 2.5e-5 --grad-clip 1.0
+```
+
+Fine-tuning requires lower LR (backbone needs smaller updates than a fresh
+probe head) and finite grad clipping. Single feature type only (`canvas_hidden`
+by default) — the backbone is shared, so multi-probe fine-tuning would
+double-step it.
+
+### DINOv3 baseline probe
+
+```bash
+uv run python -m canvit_probes.training.ade20k train-dinov3-probe \
+  --scene-size 512 --teacher-repo facebook/dinov3-vitb16-pretrain-lvd1689m
+```
+
+## Where training runs
+
+| Machine | Purpose | Notes |
+|---------|---------|-------|
+| **Nibi** (H100, SLURM) | Production probe training | ADE20K at `$SLURM_TMPDIR/ADEChallengeData2016`, submit via `sbatch` |
+| **Crockett** (RTX 4090) | Quick iteration, smoke tests | ADE20K at `/datasets/ADE20k/ADEChallengeData2016`, run `nohup` directly |
+
+On Nibi, fetch the dataset into node-local NVMe via the SLURM prolog (already
+handled for existing jobs). On crockett, one GPU process at a time —
+DataLoader workers (CPU-only) are fine.
+
 ## Available probes
 
 All probes are on HuggingFace under the `canvit/` organization (private).
 Browse at https://huggingface.co/canvit or list via API:
+
 ```python
 from huggingface_hub import HfApi
 [m.id for m in HfApi().list_models(author="canvit") if "probe" in m.id]
 ```
+
+The headline ADE20K mIoU in the paper (45.9%) uses `canvit/probe-ade20k-40k-s1024-c64-in21k`.
 
 ## Architecture
 
@@ -39,7 +92,7 @@ uv run pypatree
 
 | Repo | Role |
 |------|------|
-| [CanViT-PyTorch-Next](https://github.com/yberreby/CanViT-PyTorch-Next) (private) | Core model (`canvit` package) |
+| [CanViT-PyTorch-Next](https://github.com/yberreby/CanViT-PyTorch-Next) (private) | Core model (`canvit_pytorch` package) |
 | [CanViT-eval](https://github.com/m2b3/CanViT-eval) | Evaluation (uses probes) |
 | [CanViT-pretrain](https://github.com/m2b3/CanViT-pretrain) | Model pretraining |
 | [CanViT-Toward-AVFMs](https://github.com/m2b3/CanViT-Toward-AVFMs) | Paper |
