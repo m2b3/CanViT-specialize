@@ -80,7 +80,8 @@ def make_viz_figure(
 
     for i in range(n_samples):
         col = 0
-        img_np = (imagenet_denormalize(images[i]).cpu().numpy() * 255).astype(np.uint8)
+        # imagenet_denormalize returns CHW tensor; matplotlib imshow requires HWC.
+        img_np = (imagenet_denormalize(images[i]).cpu().numpy() * 255).astype(np.uint8).transpose(1, 2, 0)
         axes[i, col].imshow(img_np)
         axes[i, col].set_title("Image" if i == 0 else "")
         axes[i, col].axis("off")
@@ -171,7 +172,8 @@ def make_probe_viz_figure(
 
     for i in range(n_samples):
         col = 0
-        img_np = (imagenet_denormalize(images[i]).cpu().numpy() * 255).astype(np.uint8)
+        # imagenet_denormalize returns CHW tensor; matplotlib imshow requires HWC.
+        img_np = (imagenet_denormalize(images[i]).cpu().numpy() * 255).astype(np.uint8).transpose(1, 2, 0)
         axes[i, col].imshow(img_np)
         axes[i, col].set_title("Image" if i == 0 else "")
         axes[i, col].axis("off")
