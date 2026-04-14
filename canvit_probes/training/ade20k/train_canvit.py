@@ -91,9 +91,23 @@ def _save_probe_checkpoint(
 ) -> Path:
     """Save probe head + (optional) backbone state for finetune mode.
 
-    For frozen probe training, only the probe head changes — model is None.
-    For finetune mode, pass the backbone model so its weights are saved too.
+    Disk-usage rules (tonight's session burned 1.9 GB on 6 LP-FT smokes,
+    most of it 375 MB step-0 backbone snapshots that were identical to
+    the HF init):
+    - At step 0, the backbone equals `cfg.model_repo` on HF — caller MUST
+      pass model=None (this function asserts).
+    - "best" saves keep at most one file per feat_type — old bests are
+      unlinked before the new save.
+    - "final" saves are only used in frozen-probe mode. In finetune mode
+      the "best" checkpoint already covers what we want to publish.
     """
+    if step == 0 and model is not None:
+        raise AssertionError(
+            "Refusing to save backbone at step 0: it equals the HF init "
+            f"({cfg.model_repo}) and would waste ~375 MB. Caller must "
+            "pass model=None for the step-0 best checkpoint."
+        )
+
     t_last = cfg.n_timesteps - 1
     miou = probe.best_last_miou
     prefix = f"{feat_type}_best_t{t_last}_miou{miou:.4f}_step{step}" if is_best else f"{feat_type}_final_step{step}"
@@ -118,6 +132,49 @@ def _save_probe_checkpoint(
     torch.save(data, tmp_path)
     tmp_path.rename(path)
     log.info(f"Saved checkpoint: {path} ({path.stat().st_size / 1e6:.1f} MB)")
+    return path
+
+
+def _save_resume_state(
+    run_dir: Path,
+    step: int,
+    probes: "dict[CanvasFeatureType, ProbeState]",
+    model: CanViTForPretrainingHFHub | None,
+) -> Path:
+    """Save optimizer/scheduler/RNG state for crash-recovery resume.
+
+    Written to a SEPARATE file (`resume_state.pt`) — overwrites itself
+    every save (single-file, bounded disk footprint). ~few-hundred-MB
+    for finetune (Adam stores two fp32 moments per param across 96.5M
+    params), much smaller for frozen probe. Delete this file once the
+    run completes successfully — it's only needed to resume a partial
+    run, not to publish or reload the trained model.
+    """
+    path = run_dir / "resume_state.pt"
+    tmp_path = run_dir / ".resume_state.pt.tmp"
+    data: dict = {
+        "step": step,
+        "torch_rng_state": torch.get_rng_state(),
+        "torch_cuda_rng_state": (
+            torch.cuda.get_rng_state_all() if torch.cuda.is_available() else None
+        ),
+        "probes": {
+            feat: {
+                "optimizer_state_dict": p.optimizer.state_dict(),
+                "scheduler_state_dict": p.scheduler.state_dict(),
+                "best_mious": p.best_mious,
+            }
+            for feat, p in probes.items()
+        },
+    }
+    if model is not None:
+        # Backbone weights are needed to bring the model to the same point
+        # the optimizer/scheduler state corresponds to.
+        data["model_state_dict"] = model.state_dict()
+    run_dir.mkdir(parents=True, exist_ok=True)
+    torch.save(data, tmp_path)
+    tmp_path.rename(path)
+    log.info(f"Saved resume state: {path} ({path.stat().st_size / 1e6:.1f} MB)")
     return path
 
 
@@ -301,10 +358,23 @@ def train(cfg: Config) -> None:
                 exp.log_curve(f"{feat_type}/val_miou_curve", x=list(range(cfg.n_timesteps)), y=mious, step=step)
 
                 if improved and run_dir:
+                    # Skip backbone snapshot at step 0: it's identical to the
+                    # HF init at cfg.model_repo (LP-FT loads it via
+                    # CanViTForPretrainingHFHub.from_pretrained); saving it
+                    # would waste ~375 MB per run. The probe head IS still
+                    # saved (small) as a record of the LP-FT init point.
+                    save_backbone = cfg.finetune and step > 0
                     _save_probe_checkpoint(
                         run_dir, feat_type, probes[feat_type], step, cfg,
-                        is_best=True, model=model if cfg.finetune else None,
+                        is_best=True, model=model if save_backbone else None,
                     )
+
+            # Optional resume state — opt-in via cfg.save_resume_state, off
+            # by default. Refreshed every val; single overwriting file.
+            if cfg.save_resume_state and run_dir:
+                _save_resume_state(
+                    run_dir, step, probes, model if cfg.finetune else None,
+                )
 
             val_time = time.perf_counter() - val_start
             log.info(f"Step {step}: validation took {val_time:.1f}s")
@@ -404,11 +474,14 @@ def train(cfg: Config) -> None:
 
     pbar.close()
 
-    if run_dir:
+    # Final save only for frozen-probe training. In finetune mode the
+    # "best" checkpoint at the most recent improvement step is what we'd
+    # publish — a duplicate "final" snapshot would be ~375 MB of waste.
+    if run_dir and not cfg.finetune:
         for feat_type, probe in probes.items():
             _save_probe_checkpoint(
                 run_dir, feat_type, probe, step, cfg,
-                is_best=False, model=model if cfg.finetune else None,
+                is_best=False, model=None,
             )
 
     log.info("=" * 60)

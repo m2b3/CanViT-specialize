@@ -99,3 +99,8 @@ class Config(ProbeTrainBase):
     # Fine-tuning (LP-FT: start from trained probe, unfreeze backbone)
     finetune: bool = False
     init_probe_repo: str | None = None
+    # Crash-recovery: write resume_state.pt (optimizer + scheduler + RNG +
+    # backbone) every val. Single overwriting file, ~few-hundred MB on
+    # finetune (Adam moments). Off by default — opt in only when you
+    # actually need to be able to resume a partial run.
+    save_resume_state: bool = False
