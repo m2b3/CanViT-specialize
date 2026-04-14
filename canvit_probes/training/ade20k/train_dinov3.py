@@ -15,7 +15,6 @@ import comet_ml
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import tyro
 from canvit_pytorch.teacher import DINOv3Teacher, load_teacher
 from tqdm import tqdm
 
@@ -235,8 +234,3 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
     log.info(f"Training complete. Best mIoU: {100*best_miou:.2f}%")
     exp.log_metric(f"{metric_prefix}/best_miou", best_miou)
     log.info("=" * 60)
-
-
-def main() -> None:
-    cfg = tyro.cli(DINOv3ProbeTrainConfig)
-    train(cfg)

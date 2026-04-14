@@ -1,7 +1,6 @@
 """Visualization for ADE20K probe training (canvas and single-probe)."""
 
 from collections.abc import Mapping
-from pathlib import Path
 from typing import Protocol
 
 import comet_ml
@@ -233,10 +232,4 @@ def log_probe_viz(
 ) -> None:
     fig = make_probe_viz_figure(probe, features, images, masks, n_samples)
     exp.log_figure(figure_name=f"viz_{split}_{step}", figure=fig, step=step)
-    plt.close(fig)
-
-
-def save_viz(path: Path, fig: Figure) -> None:
-    path.parent.mkdir(parents=True, exist_ok=True)
-    fig.savefig(path, dpi=100)
     plt.close(fig)

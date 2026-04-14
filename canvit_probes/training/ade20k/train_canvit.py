@@ -18,7 +18,6 @@ from pathlib import Path
 import comet_ml
 import torch
 import torch.nn as nn
-import tyro
 from canvit_pytorch import CanViTForPretrainingHFHub
 from canvit_pytorch.teacher import load_teacher
 from torch import Tensor
@@ -419,8 +418,3 @@ def train(cfg: Config) -> None:
             exp.log_metric(f"best/{name}_t{t}", v)
         log.info(f"  {name}: t0={p.best_mious[0]:.4f} ... t{p.n_timesteps-1}={p.best_last_miou:.4f}")
     log.info("=" * 60)
-
-
-def main() -> None:
-    cfg = tyro.cli(Config)
-    train(cfg)

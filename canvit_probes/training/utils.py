@@ -38,7 +38,8 @@ def collect_metadata(cfg: Any) -> dict:
         commit = subprocess.check_output(
             ["git", "rev-parse", "HEAD"], stderr=subprocess.DEVNULL, text=True
         ).strip()
-    except Exception:
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        # CalledProcessError: not in a git repo; FileNotFoundError: git binary missing.
         commit = None
     return {
         "config": asdict(cfg),
