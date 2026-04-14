@@ -58,8 +58,11 @@ DINOV3_PROBE_COLLECTION = "canvit/dinov3-ade20k-segmentation-probes-69d59b1eb69b
 _MODEL_SHORT: dict[str, str] = {
     "facebook/dinov3-vitb16-pretrain-lvd1689m": "dv3b",
     "facebook/dinov3-vits16-pretrain-lvd1689m": "dv3s",
+    # CanViT-B flagship (IN21K). Old + current repo names are aliases for the same weights.
     "canvit/canvit-vitb16-pretrain-512px-in21k": "in21k",
     "canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02": "in21k",
+    # CanViT-B continual-pretrained on SA1B (from the IN21K flagship).
+    "canvit/canvitb16-add-vpe-pretrain-g128px-s1024px-sa1b-dv3b16-2026-02-26-from-in21k-2026-02-02": "sa1b",
 }
 
 
