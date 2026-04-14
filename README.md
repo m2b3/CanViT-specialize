@@ -22,6 +22,20 @@ logits = probe(features)
 
 ## Training
 
+### Required environment variables
+
+Both must be set in the launching shell — they are not optional and CLI flags
+do NOT bypass them:
+
+- `COMET_API_KEY` — used to create the `comet_ml.Experiment` (no fallback).
+- `ADE20K_ROOT` — used by the `Config.ade20k_root` `default_factory`. **`tyro`
+  evaluates the default factory even when `--ade20k-root` is provided as a CLI
+  override**, so passing the path on the command line does not avoid the env
+  check.
+
+When launching via `ssh remote "..."` (non-interactive), `~/.zshrc` etc. are
+not sourced — pass the env vars inline before the command.
+
 ### ADE20K segmentation probe (frozen backbone)
 
 ```bash
