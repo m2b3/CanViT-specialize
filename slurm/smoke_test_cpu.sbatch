@@ -11,7 +11,7 @@
 # Does NOT run any backward pass — pure sanity check, low priority queue.
 # Should take ~5 minutes and produces no usable training.
 
-set -eux
+set -eu  # NOT -x: would trace secret exports (HF_TOKEN, etc.) into logs
 source slurm/setup.sh
 mkdir -p logs
 

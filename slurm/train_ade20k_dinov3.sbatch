@@ -13,7 +13,7 @@
 #   sbatch slurm/train_ade20k_dinov3.sbatch --scene-size 512
 #   sbatch slurm/train_ade20k_dinov3.sbatch --scene-size 256 --teacher-repo facebook/dinov3-vits16-pretrain-lvd1689m
 
-set -eux
+set -eu  # NOT -x: would trace secret exports (HF_TOKEN, etc.) into logs
 source slurm/setup.sh
 mkdir -p logs
 

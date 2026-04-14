@@ -22,7 +22,7 @@
 #     --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
 #     --peak-lr 2.5e-5 --grad-clip 1.0 --weight-decay 1e-4
 
-set -eux
+set -eu  # NOT -x: would trace secret exports (HF_TOKEN, etc.) into logs
 source slurm/setup.sh
 mkdir -p logs
 
