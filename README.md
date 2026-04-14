@@ -1,6 +1,10 @@
-# CanViT-probes
+# CanViT-specialize
 
-Probe definitions, datasets, metrics, and training for CanViT downstream evaluation.
+Trainer, datasets, and metrics for CanViT downstream-task probes. The probe
+**architecture** lives in `canvit_pytorch.probes` (graduated upstream so
+inference-only consumers don't need this package); this repo holds the
+**training** loops, ADE20K dataloader, IoU accumulator, and LP-FT fine-tuning
+path.
 
 ## Installation
 
@@ -118,15 +122,20 @@ DataLoader workers (CPU-only) are fine.
 
 ## Available probes
 
-All probes are on HuggingFace under the `canvit/` organization (private).
-Browse at https://huggingface.co/canvit or list via API:
+Probes live under the `canvit/` HuggingFace organization — mostly public,
+browsable at https://huggingface.co/canvit. List via API:
 
 ```python
 from huggingface_hub import HfApi
 [m.id for m in HfApi().list_models(author="canvit") if "probe" in m.id]
 ```
 
-The headline ADE20K mIoU in the paper (45.9%) uses `canvit/probe-ade20k-40k-s1024-c64-in21k`.
+Curated collections:
+
+- `canvit/canvit-ade20k-segmentation-probes-pytorch` — CanViT canvas probes at multiple `(scene_size, canvas_grid)` points.
+- `canvit/dinov3-ade20k-segmentation-probes-pytorch` — DINOv3 baseline probes for passive comparison.
+
+The headline ADE20K mIoU in the paper (45.9%) uses `canvit/probe-ade20k-40k-s1024-c64-in21k` (public).
 
 ## Architecture
 
@@ -138,7 +147,7 @@ uv run pypatree
 
 | Repo | Role |
 |------|------|
-| [CanViT-PyTorch-Next](https://github.com/yberreby/CanViT-PyTorch-Next) (private) | Core model (`canvit_pytorch` package) |
+| [CanViT-PyTorch](https://github.com/m2b3/CanViT-PyTorch) (public, canonical) | Core model (`canvit_pytorch` package), probe architecture (`canvit_pytorch.probes`) |
 | [CanViT-eval](https://github.com/m2b3/CanViT-eval) | Evaluation (uses probes) |
 | [CanViT-pretrain](https://github.com/m2b3/CanViT-pretrain) | Model pretraining |
 | [CanViT-Toward-AVFMs](https://github.com/m2b3/CanViT-Toward-AVFMs) | Paper |
