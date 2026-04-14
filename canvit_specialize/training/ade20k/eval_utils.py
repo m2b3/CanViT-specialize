@@ -1,14 +1,14 @@
 """Segmentation probe utilities for ADE20K evaluation.
 
-The probe class (SegmentationProbe) lives in canvit-probes package.
+The probe class (SegmentationProbe) lives in canvit-specialize package.
 This module provides eval-specific helpers that depend on mIoUAccumulator.
 """
 
 import torch.nn as nn
 from torch import Tensor
 
-from canvit_probes.metrics import mIoUAccumulator
-from canvit_probes.training.ade20k.loss import upsample_preds
+from canvit_specialize.metrics import mIoUAccumulator
+from canvit_specialize.training.ade20k.loss import upsample_preds
 
 
 def eval_probe_on_batch(

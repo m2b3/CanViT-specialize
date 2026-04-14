@@ -30,4 +30,4 @@ echo "=== ADE20K CanViT Probe Training ==="
 echo "Job: $SLURM_JOB_ID on $(hostname)"
 nvidia-smi --query-gpu=name,memory.total --format=csv
 
-exec uv run python -m canvit_probes.training.ade20k train "$@"
+exec uv run python -m canvit_specialize.training.ade20k train "$@"

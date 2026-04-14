@@ -20,4 +20,4 @@ mkdir -p logs
 echo "=== ADE20K DINOv3 Probe Training ==="
 echo "Job: $SLURM_JOB_ID on $(hostname)"
 
-exec uv run python -m canvit_probes.training.ade20k train-dinov3-probe "$@"
+exec uv run python -m canvit_specialize.training.ade20k train-dinov3-probe "$@"

@@ -2,7 +2,7 @@
 
 import torch
 
-from canvit_probes.training.ade20k.loss import ce_loss, upsample_preds
+from canvit_specialize.training.ade20k.loss import ce_loss, upsample_preds
 
 
 def test_upsample_preds_noop():

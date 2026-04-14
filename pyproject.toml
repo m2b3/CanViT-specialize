@@ -1,7 +1,7 @@
 [project]
-name = "canvit-probes"
+name = "canvit-specialize"
 version = "0.1.0"
-description = "Probe definitions, training, and HuggingFace integration for CanViT"
+description = "Downstream-task training (probes, LP-FT) for CanViT, with task-specific datasets and metrics"
 requires-python = ">=3.12"
 dependencies = [
     "canvit-pytorch",
@@ -30,7 +30,7 @@ build-backend = "hatchling.build"
 allow-direct-references = true
 
 [tool.hatch.build.targets.wheel]
-packages = ["canvit_probes"]
+packages = ["canvit_specialize"]
 
 [dependency-groups]
 dev = [

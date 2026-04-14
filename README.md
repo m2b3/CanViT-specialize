@@ -5,13 +5,13 @@ Probe definitions, datasets, metrics, and training for CanViT downstream evaluat
 ## Installation
 
 ```bash
-uv add canvit-probes
+uv add canvit-specialize
 ```
 
 ## Using a pre-trained probe
 
 The probe **architecture** lives in `canvit_pytorch.probes` (graduated
-there so inference-only consumers don't need canvit-probes' training
+there so inference-only consumers don't need canvit-specialize' training
 deps). This package contains the **trainer** + dataset + IoU metric.
 
 ```python
@@ -49,7 +49,7 @@ not sourced — pass the env vars inline before the command.
 export COMET_API_KEY=$(cat ~/comet_api_key.txt)
 export ADE20K_ROOT=/path/to/ADEChallengeData2016
 
-uv run python -m canvit_probes.training.ade20k train \
+uv run python -m canvit_specialize.training.ade20k train \
   --scene-size 1024 --canvas-grid 64 \
   --batch-size 16 --max-steps 40000 \
   --warmup-steps 1500 --peak-lr 3e-4
@@ -61,7 +61,7 @@ Initialize from a converged frozen probe, then unfreeze the CanViT backbone
 and continue training jointly (Kumar et al. ICLR 2022):
 
 ```bash
-uv run python -m canvit_probes.training.ade20k train \
+uv run python -m canvit_specialize.training.ade20k train \
   --scene-size 1024 --canvas-grid 64 \
   --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
   --batch-size 16 --max-steps 40000 \
@@ -80,7 +80,7 @@ so multi-probe fine-tuning would double-step it.
 ### DINOv3 baseline probe
 
 ```bash
-uv run python -m canvit_probes.training.ade20k train-dinov3-probe \
+uv run python -m canvit_specialize.training.ade20k train-dinov3-probe \
   --scene-size 512 --teacher-repo facebook/dinov3-vitb16-pretrain-lvd1689m
 ```
 
@@ -99,7 +99,7 @@ sbatch --time=00:15:00 slurm/train_ade20k_canvit.sbatch \
 # CPU env validation only (no GPU consumed; submit to CPU partition):
 salloc --time=00:15:00 --account=def-skrishna_cpu --cpus-per-task=4 --mem=16G
 # then in the allocation:
-cd ~/scratch/canvit-probes && cp .envrc.nibi .envrc && source slurm/setup.sh
+cd ~/scratch/canvit-specialize && cp .envrc.nibi .envrc && source slurm/setup.sh
 uv run python -c "from canvit_pytorch import SegmentationProbe; \
   p = SegmentationProbe.from_pretrained('canvit/probe-ade20k-40k-s512-c32-in21k'); \
   print(f'OK, {sum(x.numel() for x in p.parameters()):,} params')"
