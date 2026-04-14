@@ -7,7 +7,9 @@ from torch import Tensor
 class mIoUAccumulator:
     """Global mIoU: sum intersection/union across all images, then average over classes.
 
-    Uses histc-based counting (DINOv3 approach) — no GPU sync until compute().
+    Per-image, per-class loop accumulates into per-class intersection/union
+    counters held on GPU. No GPU sync until compute() (the per-class .sum()
+    results stay on device until then).
     """
 
     def __init__(self, num_classes: int, ignore_index: int, device: torch.device) -> None:
