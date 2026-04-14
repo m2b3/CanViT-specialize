@@ -6,7 +6,7 @@ from typing import Any
 from torch import Tensor
 from torch.optim import AdamW
 
-from canvit_probes import SegmentationProbe
+from canvit_pytorch.probes import SegmentationProbe
 
 
 @dataclass

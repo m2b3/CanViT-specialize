@@ -27,7 +27,7 @@ from canvit_probes.training.ade20k.viz import log_viz
 
 from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES
 from canvit_probes.training.ade20k.eval_utils import eval_probe_on_batch
-from canvit_probes import SegmentationProbe
+from canvit_pytorch.probes import SegmentationProbe
 from canvit_probes.metrics import mIoUAccumulator
 from canvit_probes.training.utils import make_viewpoints
 

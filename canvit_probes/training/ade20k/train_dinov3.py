@@ -20,7 +20,7 @@ from tqdm import tqdm
 
 from canvit_probes.datasets.ade20k import IGNORE_LABEL, NUM_CLASSES
 from canvit_probes.training.ade20k.eval_utils import eval_probe_on_batch
-from canvit_probes import SegmentationProbe
+from canvit_pytorch.probes import SegmentationProbe
 from canvit_probes.training.ade20k.common import make_ade20k_loaders, make_amp_ctx, make_optimizer_and_scheduler
 from canvit_probes.training.ade20k.config import ProbeTrainBase
 from canvit_probes.training.ade20k.loss import ce_loss, upsample_preds

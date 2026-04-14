@@ -19,7 +19,7 @@ from pathlib import Path
 import torch
 import tyro
 
-from canvit_probes import SegmentationProbe
+from canvit_pytorch.probes import SegmentationProbe
 from scripts.upload_utils import upload_probe_to_hub
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
