@@ -269,10 +269,15 @@ assert logits.shape == (1, {num_classes}, {grid}, {grid})
 
 ## Training
 
-Architecture: `LayerNorm → Dropout → BatchNorm → Conv1×1`.
+Architecture: `{arch}`.
 
 {hp_table}
 """
+
+
+def _arch_str(use_ln: bool) -> str:
+    """Describe the probe architecture (LN is optional; DINOv3 probes omit it)."""
+    return "LayerNorm → Dropout → BatchNorm → Conv1×1" if use_ln else "Dropout → BatchNorm → Conv1×1"
 
 
 def _indent_tags(tags: list[str]) -> str:
@@ -280,7 +285,7 @@ def _indent_tags(tags: list[str]) -> str:
 
 
 def build_canvas_card(
-    repo_id: str, *, embed_dim: int, num_classes: int, cfg: dict,
+    repo_id: str, *, embed_dim: int, num_classes: int, use_ln: bool, cfg: dict,
 ) -> str:
     scene, grid = cfg["scene_size"], cfg["canvas_grid"]
     base_model = cfg["model_repo"]
@@ -295,12 +300,13 @@ def build_canvas_card(
         embed_dim=embed_dim,
         num_classes=num_classes,
         input_narrative="[B, H, W, D] canvas features from a CanViT forward pass",
+        arch=_arch_str(use_ln),
         hp_table=_rows_to_table(_canvas_hp_rows(cfg)),
     )
 
 
 def build_dinov3_card(
-    repo_id: str, *, embed_dim: int, num_classes: int, cfg: dict,
+    repo_id: str, *, embed_dim: int, num_classes: int, use_ln: bool, cfg: dict,
 ) -> str:
     base_model = cfg["model"]
     variant = _dinov3_variant(base_model)
@@ -317,6 +323,7 @@ def build_dinov3_card(
         embed_dim=embed_dim,
         num_classes=num_classes,
         input_narrative=f"[B, H, W, D] DINOv3 {variant} spatial features at {res}px input",
+        arch=_arch_str(use_ln),
         hp_table=_rows_to_table(_dinov3_hp_rows(cfg)),
     )
 
@@ -363,18 +370,20 @@ def reorder_dinov3_collection(*, dry_run: bool = False) -> None:
 
 # ---------- Per-probe publish pipeline ----------
 
-def _build_card_and_note(repo_id: str, embed_dim: int, num_classes: int,
+def _build_card_and_note(repo_id: str, embed_dim: int, num_classes: int, use_ln: bool,
                         feat_type: str, cfg: dict) -> tuple[str, str, str]:
     """Return (card_markdown, collection_note, collection_slug)."""
     if feat_type == "canvas_hidden":
         return (
-            build_canvas_card(repo_id, embed_dim=embed_dim, num_classes=num_classes, cfg=cfg),
+            build_canvas_card(repo_id, embed_dim=embed_dim, num_classes=num_classes,
+                              use_ln=use_ln, cfg=cfg),
             canvas_probe_note(cfg),
             CANVAS_PROBE_COLLECTION,
         )
     if feat_type == "dinov3_spatial":
         return (
-            build_dinov3_card(repo_id, embed_dim=embed_dim, num_classes=num_classes, cfg=cfg),
+            build_dinov3_card(repo_id, embed_dim=embed_dim, num_classes=num_classes,
+                              use_ln=use_ln, cfg=cfg),
             dinov3_probe_note(cfg),
             DINOV3_PROBE_COLLECTION,
         )
@@ -388,7 +397,7 @@ def publish_probe(
     feat_type = _resolve_feat_type(meta)
     cfg = meta["config"]
     card, note, collection = _build_card_and_note(
-        repo_id, probe.embed_dim, probe.num_classes, feat_type, cfg,
+        repo_id, probe.embed_dim, probe.num_classes, probe.use_ln, feat_type, cfg,
     )
 
     hf_config = {
@@ -517,7 +526,7 @@ def _run_retrofit(args: Retrofit) -> None:
 
         card, note, collection = _build_card_and_note(
             repo_id, cfg_json["embed_dim"], cfg_json["num_classes"],
-            feat_type, train_cfg,
+            cfg_json["use_ln"], feat_type, train_cfg,
         )
         # Re-sanitize: old pushes wrote bare `Infinity`; make it strict-JSON.
         fresh_cfg_text = json.dumps(json_sanitize(cfg_json), indent=2)
