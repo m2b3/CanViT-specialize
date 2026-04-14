@@ -50,8 +50,8 @@ logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
 # HF collection slugs are stable identifiers; safe to hardcode.
-CANVAS_PROBE_COLLECTION = "canvit/canvit-ade20k-segmentation-probes-69d550b66add770c509bb77a"
-DINOV3_PROBE_COLLECTION = "canvit/dinov3-ade20k-segmentation-probes-69d59b1eb69bbb3422f49b4f"
+CANVAS_PROBE_COLLECTION = "canvit/canvit-ade20k-segmentation-probes-pytorch-69d550b66add770c509bb77a"
+DINOV3_PROBE_COLLECTION = "canvit/dinov3-ade20k-segmentation-probes-pytorch-69d59b1eb69bbb3422f49b4f"
 
 # Batch-mode repo naming: short id per base-model repo. Full name lives in config.json.
 # Old + current flagship CanViT-B names resolve to the same weights (same HF rename).
