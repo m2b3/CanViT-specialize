@@ -10,8 +10,12 @@ uv add canvit-probes
 
 ## Using a pre-trained probe
 
+The probe **architecture** lives in `canvit_pytorch.probes` (graduated
+there so inference-only consumers don't need canvit-probes' training
+deps). This package contains the **trainer** + dataset + IoU metric.
+
 ```python
-from canvit_probes import SegmentationProbe
+from canvit_pytorch import SegmentationProbe
 
 # Load from HuggingFace Hub (see "Available probes" below)
 probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s1024-c64-in21k")
@@ -19,6 +23,9 @@ probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s1024-c64-in2
 # Forward: [B, H, W, D] spatial features → [B, num_classes, H, W] logits
 logits = probe(features)
 ```
+
+For the fused **CanViT + probe** pair (one HF artifact, the recommended
+form for downstream eval), see `canvit_pytorch.CanViTForSemanticSegmentation`.
 
 ## Training
 
@@ -93,7 +100,7 @@ sbatch --time=00:15:00 slurm/train_ade20k_canvit.sbatch \
 salloc --time=00:15:00 --account=def-skrishna_cpu --cpus-per-task=4 --mem=16G
 # then in the allocation:
 cd ~/scratch/canvit-probes && cp .envrc.nibi .envrc && source slurm/setup.sh
-uv run python -c "from canvit_probes import SegmentationProbe; \
+uv run python -c "from canvit_pytorch import SegmentationProbe; \
   p = SegmentationProbe.from_pretrained('canvit/probe-ade20k-40k-s512-c32-in21k'); \
   print(f'OK, {sum(x.numel() for x in p.parameters()):,} params')"
 ```
