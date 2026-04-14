@@ -67,24 +67,17 @@ def main(args: Args) -> None:
 
     raw = torch.load(args.probe, map_location="cpu", weights_only=False)
 
-    # Refuse to silently drop backbone weights from a finetune (LP-FT) checkpoint.
-    # The current upload path only writes the probe head as model.safetensors;
-    # `model_state_dict` from the .pt would be discarded (or worse, get
-    # str-coerced into config.json metadata at ~400 MB). For LP-FT we need to
-    # publish the backbone to its OWN HF model repo and pair it with the probe
-    # repo at eval time. That pairing has not yet been built — track in FIXME.
+    # Refuse to silently drop CanViT weights from a finetune (LP-FT) checkpoint.
+    # This script only uploads the probe head as model.safetensors; the
+    # model_state_dict in the .pt would be lost on upload.
     is_finetune_checkpoint = "model_state_dict" in raw or raw.get("config", {}).get("finetune") is True
     if is_finetune_checkpoint:
         raise NotImplementedError(
-            f"Refusing to push {args.probe.name}: this is a finetune (LP-FT) "
-            f"checkpoint with full CanViT weights. push_probe.py only handles "
-            f"the probe HEAD; uploading via this script would silently drop "
-            f"the CanViT state_dict. Use scripts/push_finetuned.py instead — "
-            f"it constructs a CanViTForSemanticSegmentation (CanViT + probe "
-            f"head, fused) and pushes the whole thing as ONE HF model repo, "
-            f"so eval can load it via CanViTForSemanticSegmentation."
-            f"from_pretrained(...). See FIXME.md and "
-            f"project_full_finetune_probes.md memory."
+            f"{args.probe.name} is a finetune (LP-FT) checkpoint containing "
+            f"full CanViT weights. push_probe.py only handles standalone probe "
+            f"heads; pushing this would silently drop the CanViT state_dict. "
+            f"A separate paired-publish path for finetuned checkpoints is not "
+            f"yet implemented."
         )
 
     state_dict, meta = _extract_state_dict_and_metadata(raw)
