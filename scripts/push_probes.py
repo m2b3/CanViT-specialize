@@ -1,10 +1,12 @@
 """Push ADE20K segmentation probes to HuggingFace Hub.
 
-Two modes:
-  single  — push one probe with an explicit repo_id
-  batch   — push every probe under a directory, auto-deriving repo_ids
+Three modes:
+  single    — push one probe with an explicit repo_id
+  batch     — push every probe under a directory, auto-deriving repo_ids
+  retrofit  — refresh the model card + collection note for probes already on
+              HF (reads config.json from the Hub; does NOT require a .pt)
 
-Each push:
+Each push (single/batch):
   1. Uploads model.safetensors + config.json (probe weights + training metadata)
   2. Uploads README.md (minimal model card, HP table derived from metadata)
   3. Upserts the repo into the CanViT ADE20K probe collection with a
@@ -16,8 +18,12 @@ Usage:
 
     uv run python scripts/push_probes.py batch \
         --probe-dir PATH [--owner canvit] [--public] [--dry-run]
+
+    uv run python scripts/push_probes.py retrofit \
+        --repo-ids canvit/probe-ade20k-... canvit/probe-ade20k-... [--dry-run]
 """
 
+import json
 import logging
 import re
 from dataclasses import dataclass
@@ -25,6 +31,7 @@ from pathlib import Path
 
 import torch
 import tyro
+from huggingface_hub import HfApi, hf_hub_download
 
 from canvit_pytorch.probes import SegmentationProbe
 from scripts.upload_utils import (
@@ -119,20 +126,13 @@ def derive_repo_id(owner: str, meta: dict, probe_name: str) -> str:
     assert short is not None, (
         f"Unknown model_repo {cfg['model_repo']!r} — add to _MODEL_SHORT."
     )
-    scene = cfg.get("scene_size") or cfg.get("image_size")
-    grid = cfg["canvas_grid"]
-    assert scene is not None and grid is not None, (
-        f"scene or canvas_grid missing for {probe_name}: {sorted(cfg)}"
-    )
-    return f"{owner}/probe-ade20k-{steps_k}k-s{scene}-c{grid}-{short}"
+    return f"{owner}/probe-ade20k-{steps_k}k-s{cfg['scene_size']}-c{cfg['canvas_grid']}-{short}"
 
 
 # ---------- Canonical collection note ----------
 
 def canvas_probe_note(cfg: dict) -> str:
-    scene = cfg.get("scene_size") or cfg.get("image_size")
-    grid = cfg["canvas_grid"]
-    return f"CanViT, {scene}px scene, {grid}×{grid} canvas grid"
+    return f"CanViT, {cfg['scene_size']}px scene, {cfg['canvas_grid']}×{cfg['canvas_grid']} canvas grid"
 
 
 def dinov3_probe_note(cfg: dict) -> str:
@@ -210,8 +210,7 @@ def _precision_label(cfg: dict) -> str:
 
 
 def _canvas_hp_table(cfg: dict) -> str:
-    scene = cfg.get("scene_size") or cfg.get("image_size")
-    grid = cfg["canvas_grid"]
+    scene, grid = cfg["scene_size"], cfg["canvas_grid"]
     scale_lo, scale_hi = cfg["aug_scale_range"]
     rows = [
         ("Scene size", f"{scene} px"),
@@ -235,10 +234,9 @@ def _canvas_hp_table(cfg: dict) -> str:
 
 
 def build_canvas_card(
-    repo_id: str, embed_dim: int, num_classes: int, cfg: dict,
+    repo_id: str, *, embed_dim: int, num_classes: int, cfg: dict,
 ) -> str:
-    scene = cfg.get("scene_size") or cfg.get("image_size")
-    grid = cfg["canvas_grid"]
+    scene, grid = cfg["scene_size"], cfg["canvas_grid"]
     return _CARD_TEMPLATE.format(
         base_model=cfg["model_repo"],
         title=f"ADE20K Segmentation Probe — canvas {grid}×{grid} @ {scene}px scene",
@@ -266,7 +264,7 @@ def publish_probe(
         collection, card, note = DINOV3_PROBE_COLLECTION, None, dinov3_probe_note(cfg)
     else:
         collection = CANVAS_PROBE_COLLECTION
-        card = build_canvas_card(repo_id, embed_dim, num_classes, cfg)
+        card = build_canvas_card(repo_id, embed_dim=embed_dim, num_classes=num_classes, cfg=cfg)
         note = canvas_probe_note(cfg)
 
     hf_config = {
@@ -312,6 +310,22 @@ class Batch:
     dry_run: bool = False
 
 
+@dataclass
+class Retrofit:
+    """Refresh model card + collection note for probes already on HF.
+
+    Reads config.json from each repo, re-sanitizes it (older pushes
+    wrote bare `Infinity` tokens — invalid JSON, rejected by strict
+    parsers including HF's own config viewer), regenerates the card and
+    collection note with the current template, and uploads anything
+    that changed. Idempotent in the sense of: the huggingface_hub
+    client skips empty commits when the uploaded content is identical
+    to HEAD, so re-running against a fresh repo is a no-op.
+    """
+    repo_ids: list[str]
+    dry_run: bool = False
+
+
 def _find_best_pt(d: Path) -> Path:
     candidates = list(d.glob("*best*miou*.pt"))
     assert len(candidates) >= 1, f"No best checkpoint in {d}"
@@ -351,12 +365,57 @@ def _run_batch(args: Batch) -> None:
     log.info("Done.")
 
 
+def _run_retrofit(args: Retrofit) -> None:
+    api = HfApi()
+    for repo_id in args.repo_ids:
+        log.info("Retrofitting %s", repo_id)
+        raw_text = Path(hf_hub_download(repo_id, "config.json")).read_text()
+        cfg_json = json.loads(raw_text)
+        meta = cfg_json.get("metadata", {})
+        train_cfg = meta.get("config", {})
+        feat_type = meta.get("feat_type", "canvas_hidden")
+
+        if feat_type == "dinov3_spatial":
+            log.info("  (DINOv3 probe: retrofit template not yet implemented, skipping)")
+            continue
+
+        card = build_canvas_card(
+            repo_id,
+            embed_dim=cfg_json["embed_dim"],
+            num_classes=cfg_json["num_classes"],
+            cfg=train_cfg,
+        )
+        note = canvas_probe_note(train_cfg)
+        # Re-sanitize: old pushes wrote bare `Infinity`; make it strict-JSON.
+        fresh_cfg_text = json.dumps(json_sanitize(cfg_json), indent=2)
+        cfg_needs_rewrite = fresh_cfg_text != raw_text
+
+        log.info("  note: %s", note)
+        log.info("  card: %d chars", len(card))
+        log.info("  config.json rewrite: %s", "yes (sanitized)" if cfg_needs_rewrite else "no (clean)")
+        if args.dry_run:
+            continue
+
+        upload_model_card(repo_id=repo_id, card_text=card)
+        upsert_collection_item(CANVAS_PROBE_COLLECTION, repo_id, note=note)
+        if cfg_needs_rewrite:
+            api.upload_file(
+                path_or_fileobj=fresh_cfg_text.encode(),
+                path_in_repo="config.json",
+                repo_id=repo_id,
+                commit_message="Sanitize config.json (Infinity → \"inf\", Paths → str)",
+            )
+    log.info("Done.")
+
+
 def main() -> None:
-    args = tyro.cli(Single | Batch)
+    args = tyro.cli(Single | Batch | Retrofit)
     if isinstance(args, Single):
         _run_single(args)
-    else:
+    elif isinstance(args, Batch):
         _run_batch(args)
+    else:
+        _run_retrofit(args)
 
 
 if __name__ == "__main__":
