@@ -83,6 +83,28 @@ def _assert_json_clean(obj: object, path: str = "config") -> None:
         )
 
 
+def upload_model_card(*, repo_id: str, card_text: str) -> None:
+    """Upload `card_text` as the repo's README.md (HF model card)."""
+    HfApi().upload_file(
+        path_or_fileobj=card_text.encode(),
+        path_in_repo="README.md",
+        repo_id=repo_id,
+        commit_message="Update model card",
+    )
+
+
+def upsert_collection_item(collection_slug: str, item_id: str, *, note: str) -> None:
+    """Add `item_id` to the collection, or update its note if already present."""
+    api = HfApi()
+    col = api.get_collection(collection_slug)
+    for it in col.items:
+        if it.item_id == item_id:
+            if it.note != note:
+                api.update_collection_item(collection_slug, it.item_object_id, note=note)
+            return
+    api.add_collection_item(collection_slug, item_id, item_type="model", note=note)
+
+
 def pull_comet_params(experiment_key: str) -> dict[str, str]:
     """Pull deduplicated hyperparameters from a Comet experiment.
 

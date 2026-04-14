@@ -12,5 +12,5 @@ export CHECKPOINTS_DIR=$HOME/projects/canvit-specialize/checkpoints
 # A bare `cmd1 && cmd2` evaluating to false kills the shell. Use `if` or `|| true`.
 if [ -f ~/comet_api_key.txt ]; then export COMET_API_KEY=$(cat ~/comet_api_key.txt); fi
 # HF_TOKEN: huggingface_hub reads cached token from ~/.cache/huggingface/token if env not set,
-# but some code paths (e.g. push_probe.py) require the env var to be set explicitly.
+# but some code paths (e.g. push_probes.py) require the env var to be set explicitly.
 if [ -z "$HF_TOKEN" ] && [ -f ~/.cache/huggingface/token ]; then export HF_TOKEN=$(cat ~/.cache/huggingface/token); fi

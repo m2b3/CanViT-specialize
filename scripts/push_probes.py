@@ -1,14 +1,21 @@
-"""Push all 40k-step ADE20K probes to HuggingFace Hub.
+"""Push ADE20K segmentation probes to HuggingFace Hub.
 
-Reads probe checkpoints from Nibi (or local), derives repo ID from
-checkpoint metadata, and pushes via SegmentationProbe + safetensors.
+Two modes:
+  single  — push one probe with an explicit repo_id
+  batch   — push every probe under a directory, auto-deriving repo_ids
 
-Naming convention (derived from checkpoint metadata, never hardcoded):
-  Canvas probes:  canvit/probe-ade20k-{steps}k-s{scene}-c{grid}-{model_slug}
-  DINOv3 probes:  canvit/probe-ade20k-{steps}k-{model_slug}-{resolution}px
+Each push:
+  1. Uploads model.safetensors + config.json (probe weights + training metadata)
+  2. Uploads README.md (minimal model card, HP table derived from metadata)
+  3. Upserts the repo into the CanViT ADE20K probe collection with a
+     canonical note — no parenthetical drift.
 
 Usage:
-    uv run python scripts/push_probes.py --probe-dir /path/to/probes --dry-run
+    uv run python scripts/push_probes.py single \
+        --probe PATH --repo-id canvit/probe-ade20k-... [--public] [--dry-run]
+
+    uv run python scripts/push_probes.py batch \
+        --probe-dir PATH [--owner canvit] [--public] [--dry-run]
 """
 
 import logging
@@ -20,137 +27,337 @@ import torch
 import tyro
 
 from canvit_pytorch.probes import SegmentationProbe
-from scripts.upload_utils import json_sanitize, upload_probe_to_hub
+from scripts.upload_utils import (
+    json_sanitize,
+    upload_model_card,
+    upload_probe_to_hub,
+    upsert_collection_item,
+)
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
+# HF collection slugs are stable identifiers; safe to hardcode.
+CANVAS_PROBE_COLLECTION = "canvit/canvit-ade20k-segmentation-probes-69d550b66add770c509bb77a"
+DINOV3_PROBE_COLLECTION = "canvit/dinov3-ade20k-segmentation-probes-69d59b1eb69bbb3422f49b4f"
+
+# Batch-mode repo naming: short id per base-model repo. Full name lives in config.json.
+# Old + current flagship CanViT-B names resolve to the same weights (same HF rename).
+_MODEL_SHORT: dict[str, str] = {
+    "facebook/dinov3-vitb16-pretrain-lvd1689m": "dv3b",
+    "facebook/dinov3-vits16-pretrain-lvd1689m": "dv3s",
+    "canvit/canvit-vitb16-pretrain-512px-in21k": "in21k",
+    "canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02": "in21k",
+}
+
+
+# ---------- Checkpoint loading ----------
+
+def _extract_state_dict_and_metadata(raw: dict) -> tuple[dict, dict]:
+    """Supports canvas (new + legacy) and DINOv3 probe checkpoint formats."""
+    if "feat_type" in raw:
+        sd = raw["probe_state_dict"]
+        meta = {k: v for k, v in raw.items() if k != "probe_state_dict"}
+        return sd, meta
+    if "probe_state_dicts" in raw:
+        sd = raw["probe_state_dicts"]["canvas_hidden"]
+        meta = {k: v for k, v in raw.items() if k != "probe_state_dicts"}
+        meta["feat_type"] = "canvas_hidden"
+        meta["_legacy_format"] = True
+        return sd, meta
+    if "probe_state_dict" in raw:
+        sd = raw["probe_state_dict"]
+        meta = {k: v for k, v in raw.items() if k != "probe_state_dict"}
+        meta["feat_type"] = "dinov3_spatial"
+        return sd, meta
+    raise AssertionError(f"Unknown probe checkpoint format. Keys: {sorted(raw.keys())}")
+
+
+def _assert_not_finetune(raw: dict, name: str) -> None:
+    """LP-FT checkpoints carry full CanViT weights; pushing via this script
+    would silently drop them. Refuse until a paired-publish path exists."""
+    if "model_state_dict" in raw or raw.get("config", {}).get("finetune") is True:
+        raise NotImplementedError(
+            f"{name} is an LP-FT checkpoint with full CanViT weights. "
+            f"push_probes.py only handles standalone probe heads; pushing "
+            f"would silently drop the CanViT state_dict."
+        )
+
+
+def load_probe(pt_path: Path) -> tuple[SegmentationProbe, dict]:
+    """Return (probe, metadata). Probe weights strict-loaded and validated."""
+    raw = torch.load(pt_path, map_location="cpu", weights_only=False)
+    _assert_not_finetune(raw, pt_path.name)
+    sd, meta = _extract_state_dict_and_metadata(raw)
+
+    embed_dim = sd["conv.weight"].shape[1]
+    num_classes = sd["conv.weight"].shape[0]
+    use_ln = "ln.weight" in sd
+    dropout = meta.get("config", {}).get("dropout")
+    assert dropout is not None, f"dropout missing in {pt_path}"
+
+    probe = SegmentationProbe(
+        embed_dim=embed_dim, num_classes=num_classes,
+        dropout=dropout, use_ln=use_ln,
+    )
+    result = probe.load_state_dict(sd, strict=True)
+    assert not result.missing_keys and not result.unexpected_keys
+    return probe, meta
+
+
+# ---------- Batch-mode repo naming ----------
+
+def derive_repo_id(owner: str, meta: dict, probe_name: str) -> str:
+    cfg = meta.get("config", {})
+    steps_k = cfg["max_steps"] // 1000
+
+    if meta.get("feat_type") == "dinov3_spatial":
+        short = _MODEL_SHORT[cfg["model"]]
+        return f"{owner}/probe-ade20k-{steps_k}k-{short}-{cfg['resolution']}px"
+
+    short = _MODEL_SHORT.get(cfg["model_repo"])
+    assert short is not None, (
+        f"Unknown model_repo {cfg['model_repo']!r} — add to _MODEL_SHORT."
+    )
+    scene = cfg.get("scene_size") or cfg.get("image_size")
+    grid = cfg["canvas_grid"]
+    assert scene is not None and grid is not None, (
+        f"scene or canvas_grid missing for {probe_name}: {sorted(cfg)}"
+    )
+    return f"{owner}/probe-ade20k-{steps_k}k-s{scene}-c{grid}-{short}"
+
+
+# ---------- Canonical collection note ----------
+
+def canvas_probe_note(cfg: dict) -> str:
+    scene = cfg.get("scene_size") or cfg.get("image_size")
+    grid = cfg["canvas_grid"]
+    return f"CanViT, {scene}px scene, {grid}×{grid} canvas grid"
+
+
+def dinov3_probe_note(cfg: dict) -> str:
+    m = re.search(r"dinov3-vit(b|s|l|h)(\d+)", cfg["model"])
+    assert m is not None, f"Cannot parse DINOv3 variant from {cfg['model']!r}"
+    variant = m.group(1).upper()
+    return f"DINOv3 ViT-{variant}/{m.group(2)}, {cfg['resolution']}px input"
+
+
+# ---------- Model card ----------
+
+_CARD_TEMPLATE = """\
+---
+license: mit
+library_name: canvit-pytorch
+pipeline_tag: image-segmentation
+tags:
+  - canvit
+  - active-vision
+  - ade20k
+  - segmentation-probe
+datasets:
+  - scene_parse_150
+base_model: {base_model}
+---
+
+# {title}
+
+Linear segmentation probe on the canvas features of
+[{base_model}](https://huggingface.co/{base_model}).
+
+- **Paper**: [arXiv:2603.22570](https://arxiv.org/abs/2603.22570)
+- **Training code**: [github.com/m2b3/CanViT-specialize](https://github.com/m2b3/CanViT-specialize)
+
+## Usage
+
+```bash
+uv add "canvit-pytorch @ git+https://github.com/m2b3/CanViT-PyTorch.git"
+```
+
+```python
+import torch
+from canvit_pytorch.probes import SegmentationProbe
+
+probe = SegmentationProbe.from_pretrained("{repo_id}").eval()
+
+# [B, H, W, D] canvas features from a CanViT forward pass
+features = torch.randn(1, {grid}, {grid}, {embed_dim})
+with torch.inference_mode():
+    logits = probe(features)    # [B, num_classes, H, W]
+assert logits.shape == (1, {num_classes}, {grid}, {grid})
+```
+
+## Training
+
+Architecture: `LayerNorm → Dropout → BatchNorm → Conv1×1`.
+
+{hp_table}
+"""
+
+
+def _policy_label(cfg: dict) -> str:
+    """R-IID / F-IID per paper, from `train_start_full`.
+
+    Probe training currently hardcodes the "random" policy family in
+    train_canvit.py; under that assumption, the only axis that distinguishes
+    R-IID from F-IID is whether t=0 is full-scene. If a non-random training
+    policy is ever added, revisit this helper.
+    """
+    return "F-IID" if cfg.get("train_start_full") else "R-IID"
+
+
+def _precision_label(cfg: dict) -> str:
+    return "bf16 (AMP)" if cfg.get("amp") else "fp32"
+
+
+def _canvas_hp_table(cfg: dict) -> str:
+    scene = cfg.get("scene_size") or cfg.get("image_size")
+    grid = cfg["canvas_grid"]
+    scale_lo, scale_hi = cfg["aug_scale_range"]
+    rows = [
+        ("Scene size", f"{scene} px"),
+        ("Canvas grid", f"{grid} × {grid}"),
+        ("Glimpse size", f"{cfg['glimpse_px']} px"),
+        ("Timesteps (T)", str(cfg["n_timesteps"])),
+        ("Training policy", _policy_label(cfg)),
+        ("Optimizer", "AdamW"),
+        ("Peak LR", f"{cfg['peak_lr']:g}"),
+        ("Weight decay", f"{cfg['weight_decay']:g}"),
+        ("LR schedule", f"{cfg['warmup_steps']:,}-step warmup → cosine decay"),
+        ("Batch size", str(cfg["batch_size"])),
+        ("Max steps", f"{cfg['max_steps']:,}"),
+        ("Dropout", str(cfg["dropout"])),
+        ("Augmentation", f"RandomResizedCrop scale [{scale_lo:g}, {scale_hi:g}] + HFlip"),
+        ("Precision", _precision_label(cfg)),
+    ]
+    lines = ["| Hyperparameter | Value |", "|---|---|"]
+    lines += [f"| {k} | {v} |" for k, v in rows]
+    return "\n".join(lines)
+
+
+def build_canvas_card(
+    repo_id: str, embed_dim: int, num_classes: int, cfg: dict,
+) -> str:
+    scene = cfg.get("scene_size") or cfg.get("image_size")
+    grid = cfg["canvas_grid"]
+    return _CARD_TEMPLATE.format(
+        base_model=cfg["model_repo"],
+        title=f"ADE20K Segmentation Probe — canvas {grid}×{grid} @ {scene}px scene",
+        repo_id=repo_id,
+        grid=grid,
+        embed_dim=embed_dim,
+        num_classes=num_classes,
+        hp_table=_canvas_hp_table(cfg),
+    )
+
+
+# ---------- Publish pipeline ----------
+
+def publish_probe(
+    probe: SegmentationProbe, meta: dict, repo_id: str,
+    *, public: bool, dry_run: bool,
+) -> None:
+    feat_type = meta.get("feat_type")
+    cfg = meta.get("config", {})
+    embed_dim = probe.embed_dim
+    num_classes = probe.num_classes
+
+    if feat_type == "dinov3_spatial":
+        # DINOv3 probe card is not yet templated; uploads-only path preserved.
+        collection, card, note = DINOV3_PROBE_COLLECTION, None, dinov3_probe_note(cfg)
+    else:
+        collection = CANVAS_PROBE_COLLECTION
+        card = build_canvas_card(repo_id, embed_dim, num_classes, cfg)
+        note = canvas_probe_note(cfg)
+
+    hf_config = {
+        "embed_dim": embed_dim,
+        "num_classes": num_classes,
+        "dropout": probe.dropout_p,
+        "use_ln": probe.use_ln,
+        "metadata": json_sanitize(meta),
+    }
+
+    log.info("  → %s  visibility=%s", repo_id, "public" if public else "private")
+    log.info("     note:       %s", note)
+    log.info("     model card: %s", "yes" if card is not None else "no (DINOv3 — TODO)")
+    if dry_run:
+        return
+
+    upload_probe_to_hub(
+        state_dict=probe.state_dict(), config=hf_config,
+        repo_id=repo_id, private=not public,
+    )
+    if card is not None:
+        upload_model_card(repo_id=repo_id, card_text=card)
+    upsert_collection_item(collection, repo_id, note=note)
+
+
+# ---------- Entry points ----------
 
 @dataclass
-class Args:
+class Single:
+    """Push one probe checkpoint with an explicit repo_id."""
+    probe: Path
+    repo_id: str
+    public: bool = False
+    dry_run: bool = False
+
+
+@dataclass
+class Batch:
+    """Push every probe under `probe_dir`, auto-deriving repo_ids."""
     probe_dir: Path
     owner: str = "canvit"
+    public: bool = False
     dry_run: bool = False
 
 
 def _find_best_pt(d: Path) -> Path:
-    """Find the best checkpoint in a probe directory."""
-    # Canvas probes: canvas_hidden_best_t*_miou*_step*.pt
-    # DINOv3 probes: best_miou*_step*.pt
     candidates = list(d.glob("*best*miou*.pt"))
-    assert len(candidates) >= 1, f"No best checkpoint in {d}: {list(d.glob('*.pt'))}"
-    # Take the one with highest mIoU in the filename
-    def _extract_miou(p: Path) -> float:
+    assert len(candidates) >= 1, f"No best checkpoint in {d}"
+    def _miou(p: Path) -> float:
         m = re.search(r"miou([\d.]+)", p.name)
         return float(m.group(1)) if m else 0.0
-    return max(candidates, key=_extract_miou)
+    return max(candidates, key=_miou)
 
 
-# Short model identifiers for probe naming.
-# Full model repo stored in config.json metadata.
-_MODEL_SHORT: dict[str, str] = {
-    # DINOv3 teachers
-    "facebook/dinov3-vitb16-pretrain-lvd1689m": "dv3b",
-    "facebook/dinov3-vits16-pretrain-lvd1689m": "dv3s",
-    # CanViT checkpoints (old and current repo names → same short id)
-    "canvit/canvit-vitb16-pretrain-512px-in21k": "in21k",
-    "canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02": "in21k",
-    "canvit/canvitb16-add-vpe-pretrain-g128px-s1024px-sa1b-dv3b16-2026-02-26-from-in21k-2026-02-02": "sa1b",
-}
+def _run_single(args: Single) -> None:
+    assert args.probe.exists(), f"Not found: {args.probe}"
+    probe, meta = load_probe(args.probe)
+    publish_probe(probe, meta, args.repo_id,
+                  public=args.public, dry_run=args.dry_run)
 
 
-def _make_repo_id(owner: str, config: dict, is_dinov3: bool, *, probe_name: str) -> str:
-    """Derive HF repo ID from checkpoint metadata.
-
-    Format:
-      DINOv3: probe-ade20k-{steps}k-{model_short}-{resolution}px
-      Canvas: probe-ade20k-{steps}k-s{scene}-c{grid}-{model_short}
-    """
-    steps_k = config["max_steps"] // 1000
-
-    if is_dinov3:
-        model_repo = config["model"]
-        short = _MODEL_SHORT[model_repo]
-        resolution = config["resolution"]
-        return f"{owner}/probe-ade20k-{steps_k}k-{short}-{resolution}px"
-    else:
-        model_repo = config["model_repo"]
-        short = _MODEL_SHORT.get(model_repo)
-        assert short is not None, (
-            f"Unknown model_repo '{model_repo}' — add to _MODEL_SHORT. "
-            f"Known: {sorted(_MODEL_SHORT)}"
-        )
-        # scene_size and canvas_grid are INDEPENDENT (commit 0244496).
-        # canvas_grid may be None in older probes → derive from scene_size.
-        scene = config.get("scene_size", config.get("image_size"))
-        assert scene is not None, f"No scene_size in config: {sorted(config)}"
-        canvas_grid = config.get("canvas_grid")
-        assert canvas_grid is not None, (
-            f"canvas_grid not in config for {probe_name}. "
-            f"canvas_grid is independent of scene_size — cannot be derived."
-        )
-        return f"{owner}/probe-ade20k-{steps_k}k-s{scene}-c{canvas_grid}-{short}"
-
-
-def main(args: Args) -> None:
+def _run_batch(args: Batch) -> None:
     assert args.probe_dir.is_dir(), f"Not a directory: {args.probe_dir}"
-
-    # Find all probe directories (each contains best*.pt)
-    probe_dirs = sorted(d for d in args.probe_dir.iterdir()
-                        if d.is_dir() and (d.name.startswith("dinov3-") or d.name.startswith("canvit")))
-
+    probe_dirs = sorted(d for d in args.probe_dir.iterdir() if d.is_dir())
     log.info("%s %d probe directories in %s",
              "DRY RUN:" if args.dry_run else "Pushing", len(probe_dirs), args.probe_dir)
 
     for d in probe_dirs:
-        best_pt = _find_best_pt(d)
-        raw = torch.load(best_pt, map_location="cpu", weights_only=False)
-        config = raw.get("config", {})
-        is_dinov3 = "model" in config and "model_repo" not in config
-
-        max_steps = config.get("max_steps")
-        if max_steps != 40000:
-            log.info("  SKIP %s (max_steps=%s, want 40000)", d.name, max_steps)
+        try:
+            best_pt = _find_best_pt(d)
+        except AssertionError as e:
+            log.info("  SKIP %s: %s", d.name, e)
             continue
-
-        repo_id = _make_repo_id(args.owner, config, is_dinov3, probe_name=d.name)
-
-        # Infer architecture from state_dict
-        sd = raw["probe_state_dict"]
-        embed_dim = sd["conv.weight"].shape[1]
-        num_classes = sd["conv.weight"].shape[0]
-        use_ln = "ln.weight" in sd
-        dropout = config.get("dropout")
-        assert dropout is not None
-
-        log.info("  %s → %s (embed=%d, ln=%s, file=%s)",
-                 d.name, repo_id, embed_dim, use_ln, best_pt.name)
-
-        if args.dry_run:
+        probe, meta = load_probe(best_pt)
+        cfg = meta.get("config", {})
+        if cfg.get("max_steps") != 40000:
+            log.info("  SKIP %s (max_steps=%s, want 40000)", d.name, cfg.get("max_steps"))
             continue
-
-        probe = SegmentationProbe(embed_dim=embed_dim, num_classes=num_classes,
-                                  dropout=dropout, use_ln=use_ln)
-        result = probe.load_state_dict(sd, strict=True)
-        assert not result.missing_keys and not result.unexpected_keys
-
-        # Forward ALL metadata
-        meta = {k: v for k, v in raw.items() if k != "probe_state_dict"}
-        hf_config: dict = {
-            "embed_dim": embed_dim, "num_classes": num_classes,
-            "dropout": dropout, "use_ln": use_ln,
-            "metadata": json_sanitize(meta),
-        }
-
-        upload_probe_to_hub(
-            state_dict=probe.state_dict(),
-            config=hf_config,
-            repo_id=repo_id,
-        )
-        del probe
-
+        repo_id = derive_repo_id(args.owner, meta, d.name)
+        publish_probe(probe, meta, repo_id,
+                      public=args.public, dry_run=args.dry_run)
     log.info("Done.")
 
 
+def main() -> None:
+    args = tyro.cli(Single | Batch)
+    if isinstance(args, Single):
+        _run_single(args)
+    else:
+        _run_batch(args)
+
+
 if __name__ == "__main__":
-    main(tyro.cli(Args))
+    main()
