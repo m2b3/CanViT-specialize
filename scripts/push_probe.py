@@ -18,7 +18,7 @@ import torch
 import tyro
 
 from canvit_pytorch.probes import SegmentationProbe
-from scripts.upload_utils import upload_probe_to_hub
+from scripts.upload_utils import json_sanitize, upload_probe_to_hub
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -29,6 +29,7 @@ class Args:
     probe: Path
     repo_id: str
     dry_run: bool = False
+    public: bool = False
 
 
 def _extract_state_dict_and_metadata(raw: dict) -> tuple[dict, dict]:
@@ -117,13 +118,14 @@ def main(args: Args) -> None:
         "num_classes": num_classes,
         "dropout": dropout,
         "use_ln": use_ln,
-        "metadata": meta,
+        "metadata": json_sanitize(meta),
     }
 
     upload_probe_to_hub(
         state_dict=probe.state_dict(),
         config=hf_config,
         repo_id=args.repo_id,
+        private=not args.public,
     )
 
 

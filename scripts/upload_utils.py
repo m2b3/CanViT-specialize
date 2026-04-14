@@ -2,6 +2,7 @@
 
 import json
 import logging
+import math
 import os
 import tempfile
 from pathlib import Path
@@ -40,6 +41,28 @@ def upload_probe_to_hub(
     url = f"https://huggingface.co/{repo_id}"
     log.info("Pushed to %s", url)
     return url
+
+
+def json_sanitize(obj: object) -> object:
+    """Recursively coerce checkpoint metadata to RFC-8259-compliant JSON values.
+
+    Handles two boundary issues when `dataclasses.asdict(cfg)` is shipped to HF:
+      - `pathlib.Path` values (e.g. `ade20k_root`) → string form.
+      - Non-finite floats (`inf`, `-inf`, `nan`, e.g. `grad_clip=inf`) → string
+        form. Python's stdlib JSON emits bare `Infinity`/`NaN` tokens that
+        strict parsers (JavaScript, many JSON validators) reject.
+
+    Call this on the metadata dict before passing to `upload_probe_to_hub`.
+    """
+    if isinstance(obj, dict):
+        return {k: json_sanitize(v) for k, v in obj.items()}
+    if isinstance(obj, (list, tuple)):
+        return [json_sanitize(v) for v in obj]
+    if isinstance(obj, Path):
+        return str(obj)
+    if isinstance(obj, float) and not math.isfinite(obj):
+        return str(obj)  # "inf", "-inf", "nan"
+    return obj
 
 
 def _assert_json_clean(obj: object, path: str = "config") -> None:

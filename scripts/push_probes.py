@@ -20,7 +20,7 @@ import torch
 import tyro
 
 from canvit_pytorch.probes import SegmentationProbe
-from scripts.upload_utils import upload_probe_to_hub
+from scripts.upload_utils import json_sanitize, upload_probe_to_hub
 
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
@@ -139,7 +139,7 @@ def main(args: Args) -> None:
         hf_config: dict = {
             "embed_dim": embed_dim, "num_classes": num_classes,
             "dropout": dropout, "use_ln": use_ln,
-            "metadata": meta,
+            "metadata": json_sanitize(meta),
         }
 
         upload_probe_to_hub(
