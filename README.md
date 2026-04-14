@@ -63,6 +63,27 @@ uv run python -m canvit_probes.training.ade20k train-dinov3-probe \
   --scene-size 512 --teacher-repo facebook/dinov3-vitb16-pretrain-lvd1689m
 ```
 
+### Smoke testing (validate env / import / dataset extraction without burning a long job)
+
+There is no separate smoke sbatch. Smoke tests are short parameterizations of
+the main training sbatch:
+
+```bash
+# Quick GPU smoke (5 train steps, no validation, ~5 min wallclock)
+sbatch --time=00:15:00 slurm/train_ade20k_canvit.sbatch \
+  --scene-size 512 --canvas-grid 32 \
+  --max-steps 5 --val-every 99999 --warmup-steps 1 \
+  --batch-size 2 --num-workers 2
+
+# CPU env validation only (no GPU consumed; submit to CPU partition):
+salloc --time=00:15:00 --account=def-skrishna_cpu --cpus-per-task=4 --mem=16G
+# then in the allocation:
+cd ~/scratch/canvit-probes && cp .envrc.nibi .envrc && source slurm/setup.sh
+uv run python -c "from canvit_probes import SegmentationProbe; \
+  p = SegmentationProbe.from_pretrained('canvit/probe-ade20k-40k-s512-c32-in21k'); \
+  print(f'OK, {sum(x.numel() for x in p.parameters()):,} params')"
+```
+
 ## Where training runs
 
 | Machine | Purpose | Notes |
