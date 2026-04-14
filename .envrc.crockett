@@ -1,0 +1,16 @@
+# Crockett (local RTX 4090) environment variables.
+# Copy to .envrc: cp .envrc.crockett .envrc
+# No SLURM, no scratch — datasets are on local disk.
+
+# Datasets
+export ADE20K_ROOT=/datasets/ADE20k/ADEChallengeData2016
+
+# Storage — training checkpoints
+export CHECKPOINTS_DIR=$HOME/projects/canvit-specialize/checkpoints
+
+# Credentials (optional). NOTE: every line must be safe under `set -e`.
+# A bare `cmd1 && cmd2` evaluating to false kills the shell. Use `if` or `|| true`.
+if [ -f ~/comet_api_key.txt ]; then export COMET_API_KEY=$(cat ~/comet_api_key.txt); fi
+# HF_TOKEN: huggingface_hub reads cached token from ~/.cache/huggingface/token if env not set,
+# but some code paths (e.g. push_probe.py) require the env var to be set explicitly.
+if [ -z "$HF_TOKEN" ] && [ -f ~/.cache/huggingface/token ]; then export HF_TOKEN=$(cat ~/.cache/huggingface/token); fi
