@@ -25,12 +25,36 @@ uv sync --group gcp-in1k-finetune
 ```
 Extras: `torch_xla[tpu]==2.9.0` (Linux only), `tfrecord` (IN1K TFRecord decode). Base install stays lean for users who only want ADE20K probe training.
 
-## Required environment
+## Prerequisites (one-time, on the launch laptop)
 
-- **COMET_API_KEY** — optional at training time (the run logs without Comet if unset), but required for `scripts/push_finetuned.py` to augment HF config.json.
+Before the first `sky launch`:
+
+1. **SkyPilot:** `pip install skypilot[gcp]` (or `uv tool install skypilot[gcp]`). Verify: `sky --version`.
+2. **GCP application default credentials:** `gcloud auth application-default login`. Required so SkyPilot + gcsfuse can talk to GCS. Verify: `sky check gcp` shows `[compute, storage] enabled`.
+3. **Comet API key** — create one at `https://www.comet.com/` (free tier), save to `~/.config/comet_api_key.txt` (the path is a project convention, not a Comet default). `chmod 600` that file. Without it, training runs but does not log metrics to Comet.
+4. **HuggingFace token** — `huggingface-cli login` writes the token to `~/.cache/huggingface/token` (HF's default path). The token needs "write" scope if you plan to `scripts/push_finetuned.py` back to HF.
+5. **GCS buckets:** confirm `gs://lamarck-<region>/datasets/imagenet/` has the IN1K TFRecord shards for whichever `<region>` you want to train in, and `gs://lamarck-us-central1/` exists for checkpoint storage. Override the bucket name via `LAMARCK_GCS_BUCKET` env var in the sky yaml's setup script if you don't want the `lamarck-*` naming convention.
+
+## Secrets handling (how keys flow into the VM)
+
+Pattern:
+```bash
+export COMET_API_KEY=$(cat ~/.config/comet_api_key.txt)
+export HF_TOKEN=$(cat ~/.cache/huggingface/token)
+sky launch …/sky-train-imagenet.yaml … --secret COMET_API_KEY --secret HF_TOKEN
+```
+
+- `--secret VAR` tells SkyPilot to read `VAR` from the LAUNCH-SHELL environment and inject it into the remote VM's environment (not into the yaml, not into any logs).
+- The `secrets:` block in the yaml lists the names SkyPilot will expect. Values are blank in the yaml (that is correct; they come from the launch environment).
+- Secrets are **never** checked into git, never rendered in `sky status` / `sky logs`, never written to disk on the TPU VM outside of the normal environment.
+- The local files under `~/.config/comet_api_key.txt` and `~/.cache/huggingface/token` are user-owned (600 / 600). Rotation = overwrite the file, re-export.
+
+## Required environment for code runtime (injected by SkyPilot)
+
+- **COMET_API_KEY** — optional at training time (the run logs without Comet if unset); required for `scripts/push_finetuned.py` to augment HF config.json.
 - **HF_TOKEN** — required. Pulls pretrained `canvit/canvitb16-add-vpe-pretrain-*` + DINOv3 probe `yberreby/dinov3-vitb16-lvd1689m-in1k-512x512-linear-clf-probe`.
-- **`gs://lamarck-<region>`** bucket convention. Training auto-detects the VM's region via GCE metadata server and mounts `gs://lamarck-<region>/datasets/imagenet/` via `gcsfuse`. Override with `LAMARCK_GCS_BUCKET=gs://your-bucket`.
-- **Checkpoint bucket:** pinned to `gs://lamarck-us-central1` via the yaml's `file_mounts` (MOUNT_CACHED), so state survives `EAGER_NEXT_REGION` spot failover.
+- **GCS region auto-detect.** Training auto-detects the VM's region via GCE metadata server and mounts `gs://lamarck-<region>/datasets/imagenet/` via `gcsfuse`. Override with `LAMARCK_GCS_BUCKET=gs://your-bucket`.
+- **Checkpoint bucket.** Pinned to `gs://lamarck-us-central1` via the yaml's `file_mounts` (MOUNT_CACHED), so state survives `EAGER_NEXT_REGION` spot failover.
 
 ## End-to-end workflow
 
