@@ -60,11 +60,9 @@ envs:
   EVAL_N_GLIMPSES: "0"
   EARLY_STOP_DELTA: ""
   RUN_NAME: ""
-  # A/B perf-debug switches (leave empty for normal runs):
-  #   FORCE_PLAIN_TORCH=1 — reinstall plain torch==2.9.0 from PyPI over +cu128
+  # Debug switches (leave empty for normal runs):
   #   PT_XLA_DEBUG_LEVEL=2 — per-compile Python-frame traces on stderr
-  #   TORCH_LOGS=recompiles — Dynamo recompile traces (no-op without torch.compile)
-  FORCE_PLAIN_TORCH: ""
+  #   TORCH_LOGS=recompiles — Dynamo recompile traces
   PT_XLA_DEBUG_LEVEL: ""
   TORCH_LOGS: ""
 
@@ -112,16 +110,6 @@ run: |
   # or pass --checkpoint-dir explicitly if you need cross-exec resume.
   ts "checkpoint mount at /ckpt (MOUNT_CACHED)"
   ls /ckpt/    # real error if not mounted; we want to see it
-
-  # Optional: override torch wheel with plain PyPI build (no +cu128) to A/B
-  # test the cu128 wheel as a perf regression suspect. Set FORCE_PLAIN_TORCH=1
-  # via --env. Wheel matches pyproject pin (2.9.0) so torch_xla ABI stays intact.
-  if [ "${FORCE_PLAIN_TORCH:-0}" = "1" ]; then
-    ts "FORCE_PLAIN_TORCH=1 → reinstall plain torch==2.9.0 / torchvision==0.24.0"
-    uv pip install --force-reinstall --no-deps --index-url https://pypi.org/simple/ \
-      torch==2.9.0 torchvision==0.24.0
-    ts "plain torch reinstall done"
-  fi
 
   ts "uv run starting..."
   uv run --no-sync --group gcp-in1k-finetune python -u -m canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet \

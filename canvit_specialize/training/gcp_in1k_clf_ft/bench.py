@@ -109,13 +109,15 @@ def _fwd_bwd(*, clf, optimizer, batch_size, device, mesh) -> None:
     if mesh is not None:
         xs.mark_sharding(state.canvas, mesh, ('data', None, None))
         xs.mark_sharding(state.recurrent_cls, mesh, ('data', None, None))
+    # Full BPTT: no mid-step sync — matches the flagship training step. XLA
+    # fuses forward + per-glimpse losses + backward + optimizer.step into one
+    # traced graph, dispatched by the single end-of-step sync.
     chunk_loss = torch.zeros((), device=device)
     for g in range(4):
         vp = Viewpoint(centers=vp_centers[g], scales=vp_scales[g])
         logits, state = clf(glimpse=glimpses[g], state=state, viewpoint=vp)
         chunk_loss = chunk_loss + F.cross_entropy(logits, labels)
     (chunk_loss / 4).backward()
-    torch_xla.sync()
     optimizer.step()
     optimizer.zero_grad()
     torch_xla.sync()
