@@ -1,10 +1,6 @@
 # CanViT-specialize
 
-Trainer, datasets, and metrics for CanViT downstream-task probes. The probe
-**architecture** lives in `canvit_pytorch.probes` (graduated upstream so
-inference-only consumers don't need this package); this repo holds the
-**training** loops, ADE20K dataloader, IoU accumulator, and LP-FT fine-tuning
-path.
+Trainer, datasets, and metrics for CanViT downstream-task probes + LP-FT fine-tuning. The probe *architecture* lives upstream in `canvit_pytorch.probes` (inference-only consumers don't need this package); this repo holds the *training* loops.
 
 ## Installation
 
@@ -21,38 +17,22 @@ uv add "canvit-specialize @ git+https://github.com/m2b3/CanViT-specialize.git"
 
 ## Using a pre-trained probe
 
-The probe **architecture** lives in `canvit_pytorch.probes` (graduated
-there so inference-only consumers don't need canvit-specialize' training
-deps). This package contains the **trainer** + dataset + IoU metric.
-
 ```python
 from canvit_pytorch import SegmentationProbe
-
-# Load from HuggingFace Hub (see "Available probes" below)
 probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s1024-c64-in21k")
-
-# Forward: [B, H, W, D] spatial features → [B, num_classes, H, W] logits
-logits = probe(features)
+logits = probe(features)  # [B, H, W, D] → [B, num_classes, H, W]
 ```
 
-For the fused **CanViT + probe** pair (one HF artifact, the recommended
-form for downstream eval), see `canvit_pytorch.CanViTForSemanticSegmentation`.
+For the fused **CanViT + probe** pair (one HF artifact, recommended for downstream eval), see `canvit_pytorch.CanViTForSemanticSegmentation`.
 
 ## Training
 
 ### Required environment variables
 
-Both must be set in the launching shell — they are not optional and CLI flags
-do NOT bypass them:
+- `COMET_API_KEY` — required; creates `comet_ml.Experiment` (no fallback).
+- `ADE20K_ROOT` — required even if you also pass `--ade20k-root`. `tyro` evaluates the config's `default_factory` regardless of CLI overrides.
 
-- `COMET_API_KEY` — used to create the `comet_ml.Experiment` (no fallback).
-- `ADE20K_ROOT` — used by the `Config.ade20k_root` `default_factory`. **`tyro`
-  evaluates the default factory even when `--ade20k-root` is provided as a CLI
-  override**, so passing the path on the command line does not avoid the env
-  check.
-
-When launching via `ssh remote "..."` (non-interactive), `~/.zshrc` etc. are
-not sourced — pass the env vars inline before the command.
+Non-interactive `ssh remote "…"` does not source `~/.zshrc` — pass env vars inline.
 
 ### ADE20K segmentation probe (frozen backbone)
 
@@ -68,25 +48,16 @@ uv run python -m canvit_specialize.training.ade20k train \
 
 ### ADE20K full fine-tuning (LP-FT)
 
-Initialize from a converged frozen probe, then unfreeze the CanViT backbone
-and continue training jointly (Kumar et al. ICLR 2022):
+Initialize from a converged frozen probe, then unfreeze the CanViT backbone and continue jointly (Kumar et al. ICLR 2022):
 
 ```bash
 uv run python -m canvit_specialize.training.ade20k train \
   --scene-size 1024 --canvas-grid 64 \
   --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
-  --batch-size 16 --max-steps 40000 \
-  --warmup-steps 1500 --peak-lr 2.5e-5 --grad-clip 1.0 --weight-decay 1e-4
+  --batch-size 16 --max-steps 40000
 ```
 
-Fine-tuning differs from frozen-probe training in three ways:
-- **Lower LR** (backbone is sensitive; 2.5e-5 vs 3e-4 for fresh probe).
-- **Lower weight decay** (1e-4 vs 1e-3) — aggressive WD can destabilize the
-  pretrained backbone.
-- **Finite grad clipping** (1.0 vs `inf`) — prevents catastrophic updates.
-
-Single feature type only (`canvas_hidden` by default) — the backbone is shared,
-so multi-probe fine-tuning would double-step it.
+LP-FT uses a lower LR, lower weight decay, and finite grad clip vs the fresh-probe path — all defaulted in `canvit_specialize.training.ade20k.config.Config` when `--finetune` is set. Single feature type only (the backbone is shared; multi-probe fine-tuning would double-step it).
 
 ### DINOv3 baseline probe
 
@@ -149,7 +120,7 @@ Curated collections:
 - `canvit/canvit-ade20k-segmentation-probes-pytorch` — CanViT canvas probes at multiple `(scene_size, canvas_grid)` points.
 - `canvit/dinov3-ade20k-segmentation-probes-pytorch` — DINOv3 baseline probes for passive comparison.
 
-The headline ADE20K mIoU in the paper (45.9%) uses `canvit/probe-ade20k-40k-s1024-c64-in21k` (public).
+The paper's headline ADE20K mIoU uses `canvit/probe-ade20k-40k-s1024-c64-in21k` (public). See the paper itself for the number.
 
 ## Architecture
 
