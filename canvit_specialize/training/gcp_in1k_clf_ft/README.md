@@ -75,9 +75,8 @@ uv run python scripts/push_finetuned.py \
 
 **Defaults live in `sky-train-imagenet.yaml`** (`envs:` block). `uv run python -m canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet --help` for the full tyro CLI.
 
-Non-obvious choices (why they diverge from PyTorch defaults):
+Non-obvious choices:
 
-- **`weight_decay=1e-4`** — `wd=0.01` causes divergence in multi-glimpse regime (30× higher grad norms).
 - **`chunk_size == n_glimpses`** — full BPTT; chunked BPTT drops final-step gradient quality.
 - **`min_viewpoint_scale=0.05`** — matches pretraining `p(s) ∝ (1-s)` truncation.
 - **Mixed precision OFF (fp32)** — `torch.autocast("xla", bf16)` caused ~1000× gnorm explosion through full BPTT; throughput was identical without it (XLA uses bf16 internally for matmuls).

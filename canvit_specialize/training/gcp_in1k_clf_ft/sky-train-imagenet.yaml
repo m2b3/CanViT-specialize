@@ -61,8 +61,8 @@ envs:
   EARLY_STOP_DELTA: ""
   RUN_NAME: ""
 
-  # Flagship HPs (match the published checkpoint). WD=0.01 causes divergence
-  # in the multi-glimpse regime; LR scales linearly with batch size.
+  # Flagship HPs (match the published checkpoint). LR should be scaled
+  # linearly with batch size if changed.
   BATCH_SIZE: "256"
   EPOCHS: "20"
   LR: "2.5e-5"
