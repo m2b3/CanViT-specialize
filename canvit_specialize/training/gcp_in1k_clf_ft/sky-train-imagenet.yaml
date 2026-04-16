@@ -60,11 +60,11 @@ envs:
   EVAL_N_GLIMPSES: "0"
   EARLY_STOP_DELTA: ""
   RUN_NAME: ""
-  # Debug switches (leave empty for normal runs):
-  #   PT_XLA_DEBUG_LEVEL=2 — per-compile Python-frame traces on stderr
-  #   TORCH_LOGS=recompiles — Dynamo recompile traces
-  PT_XLA_DEBUG_LEVEL: ""
-  TORCH_LOGS: ""
+  # Opt-in debug switches — pass via `--env` when you want them, do NOT declare
+  # empty defaults here: torch's _logging._init_logs reads TORCH_LOGS at import
+  # and crashes with AttributeError on empty string (Job 63 FAILED 2026-04-16):
+  #   --env PT_XLA_DEBUG_LEVEL=2 — per-compile Python-frame traces on stderr
+  #   --env TORCH_LOGS=recompiles — Dynamo recompile traces
 
   # Flagship HPs (match the published checkpoint). LR should be scaled
   # linearly with batch size if changed.
