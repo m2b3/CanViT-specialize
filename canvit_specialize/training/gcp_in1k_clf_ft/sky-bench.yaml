@@ -31,6 +31,7 @@ envs:
   N_GLIMPSES: "4"
   WARMUP_STEPS: "20"
   MEASURE_STEPS: "200"
+  NO_SYNC: ""                # set to "1" to skip end-of-step torch_xla.sync() in fwd_bwd
 
 setup: |
   cd ~/sky_workdir
@@ -55,4 +56,5 @@ run: |
     --num-workers "$NUM_WORKERS" \
     --n-glimpses "$N_GLIMPSES" \
     --warmup-steps "$WARMUP_STEPS" \
-    --measure-steps "$MEASURE_STEPS"
+    --measure-steps "$MEASURE_STEPS" \
+    ${NO_SYNC:+--no-sync}
