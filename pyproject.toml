@@ -46,16 +46,10 @@ dev = [
 # Install only on the TPU VM that runs the finetuning job:
 #     uv sync --group gcp-in1k-finetune
 gcp-in1k-finetune = [
-    # torch==2.9.0 pin is load-bearing. torch_xla==2.9.0's wheel metadata
-    # unusually declares NO torch dependency (only absl-py, numpy, pyyaml,
-    # requests), so without an explicit pin here uv's resolver picks the
-    # latest torch matching `torch>=2.0.0` from the pytorch-cu128 index
-    # (currently torch==2.11.0+cu128). torch 2.10+ added a trailing `bool`
-    # parameter to `torch::autograd::_wrap_outputs`, breaking torch_xla
-    # 2.9.0's _XLAC.so ABI with `undefined symbol: _wrap_outputs` at
-    # `import torch_xla`. Pinning just the version is sufficient — the
-    # cu128 variant (torch==2.9.0+cu128) has the same autograd C++ API as
-    # the CPU variant. Tested on TPU VM 2026-04-16.
+    # torch_xla[tpu]==2.9.0's wheel declares NO torch dep, so an unpinned torch
+    # resolves to whatever is latest on the active index — which breaks the
+    # _XLAC.so ABI (torch 2.10 changed torch::autograd::_wrap_outputs). Pin
+    # explicitly to 2.9.0 so uv picks the torch_xla-compatible build from PyPI.
     "torch==2.9.0",
     "torchvision==0.24.0",
     "torch_xla[tpu]==2.9.0; sys_platform == 'linux'",
@@ -72,15 +66,11 @@ typeCheckingMode = "standard"
 [tool.ruff]
 line-length = 120
 
-[[tool.uv.index]]
-name = "pytorch-cu128"
-url = "https://download.pytorch.org/whl/cu128"
-explicit = true
-
 [tool.uv.sources]
 canvit-pytorch = { git = "https://github.com/m2b3/CanViT-PyTorch.git" }
 dinov3 = { git = "https://github.com/yberreby/dinov3.git" }
-# Pin cu128 wheels on Linux (crockett: CUDA 12.9, Nibi H100). On macOS, fall back
-# to default PyPI (CPU-only wheels) for local development.
-torch = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]
-torchvision = [{ index = "pytorch-cu128", marker = "sys_platform == 'linux'" }]
+# NOTE: No torch/torchvision index override here. The TPU finetuning path runs
+# on TPU VMs where CUDA wheels are dead weight and were implicated in a 2×
+# throughput regression. Nibi/crockett CUDA workflows that need a specific
+# cu12x wheel should set `UV_INDEX_URL=https://download.pytorch.org/whl/cuXXX`
+# at install time, not pin it in pyproject.
