@@ -4,9 +4,18 @@ Three modes, each measures ONE axis in isolation. All import production code
 (canvit_specialize.training.gcp_in1k_clf_ft.shared + canvit_pytorch) — never
 copy-pasted — so the numbers reflect the exact code path training uses.
 
+- dataloader: pure CPU worker pipeline + viewpoint sampling; no device transfer,
+  no model. Upper bound on scenes/sec the CPU side can supply.
+- fwd: dummy on-device batch fed through `clf.forward()` for all N glimpses.
+  Upper bound on forward compute throughput with a single end-of-step sync.
+- fwd_bwd: adds cross_entropy + (chunk_loss / N).backward() + optimizer.step()
+  + optimizer.zero_grad(). Single end-of-step sync by default; --no-sync
+  skips it so XLA accumulates IR across iterations and the outer measure
+  loop's final torch_xla.sync(wait=True) forces dispatch.
+
 Usage (on v6e-4 SPMD):
     uv run python -m canvit_specialize.training.gcp_in1k_clf_ft.bench \
-        --mode {dataloader,fwd,fwd_bwd} \
+        --mode {dataloader,fwd,fwd_bwd} [--no-sync] \
         --data-dir ~/gcs/datasets/imagenet \
         --batch-size 256 --n-glimpses 4 --num-workers 32 \
         --warmup-steps 20 --measure-steps 200
