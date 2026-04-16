@@ -24,10 +24,16 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch_xla
+import torch_xla.backends as xla_backends
 import torch_xla.distributed.spmd as xs
 import torch_xla.runtime as xr
 from canvit_pytorch import CanViTForImageClassification, Viewpoint
 from torch_xla.distributed.spmd import Mesh
+
+# MXU matmul precision: pin to 1-pass bf16-internal. This matches the current
+# torch_xla default, but pinning guards against future default flips; "high" /
+# "highest" do 3× / 6× the MXU work. Must be set before any XLA compile.
+xla_backends.set_mat_mul_precision("default")
 
 from .shared import CANVAS_GRID, IMAGENET_MEAN, IMAGENET_STD, load_classifier, make_multi_glimpse_dataloader
 from .training_utils import ValLoader, apply_model_weights, load_checkpoint, make_lr_lambda, maybe_resume, save_checkpoint, should_early_stop
