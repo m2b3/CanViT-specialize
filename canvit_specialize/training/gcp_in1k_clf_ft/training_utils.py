@@ -3,6 +3,7 @@
 import logging
 import math
 import os
+import time
 from pathlib import Path
 from typing import NamedTuple
 
@@ -36,20 +37,28 @@ def to_cpu(obj):
 def save_checkpoint(*, checkpoint_dir: str, step: int, clf, optimizer,
                     best_val_acc: float, comet_key: str | None,
                     filename: str = "latest.pt", sync_fn=None) -> str:
-    """Atomic checkpoint save. Returns path written."""
+    """Atomic checkpoint save. Returns path written. Logs wallclock cost of each
+    phase so the step-cadence overhead is measurable at a glance."""
     os.makedirs(checkpoint_dir, exist_ok=True)
     path = os.path.join(checkpoint_dir, filename)
     tmp = os.path.join(checkpoint_dir, f".tmp_{filename}_{os.getpid()}_{step}")
+    t_sync0 = time.perf_counter()
     if sync_fn is not None:
         sync_fn()
+    t_state0 = time.perf_counter()
     state = to_cpu({
         "step": step, "best_val_acc": best_val_acc, "comet_key": comet_key,
         "model_state_dict": clf.state_dict(),
         "optimizer_state_dict": optimizer.state_dict(),
     })
+    t_write0 = time.perf_counter()
     torch.save(state, tmp)
     os.replace(tmp, path)
-    log.info("  Checkpoint saved: %s (step %d)", path, step)
+    t_end = time.perf_counter()
+    size_mb = os.path.getsize(path) / 1e6
+    log.info("  Checkpoint saved: %s (step %d) [%.1fMB | sync %.2fs + state %.2fs + write %.2fs = %.2fs]",
+             path, step, size_mb,
+             t_state0 - t_sync0, t_write0 - t_state0, t_end - t_write0, t_end - t_sync0)
     return path
 
 

@@ -635,7 +635,7 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--early-stop-delta", type=float, default=None)
     p.add_argument("--val-steps", type=int, default=0)
     p.add_argument("--pre-training-val", action="store_true")
-    p.add_argument("--checkpoint-every", type=int, default=1000)
+    p.add_argument("--checkpoint-every", type=int, default=200)
     p.add_argument("--checkpoint-dir", default=None)
     p.add_argument("--init-from", default=None,
                    help="Load model weights only (no optimizer/step) from checkpoint.")
