@@ -108,9 +108,7 @@ def upsert_collection_item(collection_slug: str, item_id: str, *, note: str) -> 
 def pull_comet_params(experiment_key: str) -> dict[str, str]:
     """Pull deduplicated hyperparameters from a Comet experiment.
 
-    Used to augment HF config.json with training provenance, matching the
-    pattern in lamarck-infra/demo-pytorch/push_to_hub.py — grep there for
-    `pull_comet_params` or the `api.get_experiment_by_key` call.
+    Used to augment HF config.json with training provenance.
     """
     import comet_ml
     api = comet_ml.API()

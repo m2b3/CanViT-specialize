@@ -1,16 +1,12 @@
 """CanViT IN1K classification finetuning on GCP TPU v6e.
 
-This package holds the training code that originally lived in `lamarck-infra/demo-pytorch/`
-(train_imagenet.py, shared.py, training_utils.py, viz.py). It was migrated here 2026-04-16
-so the reproducibility-critical training logic lives alongside other CanViT task-specific
-training (ade20k/, in1k/ DINOv3 probes) rather than in a separate private infra repo.
+SPMD training on a TPU v6e-4 slice; does NOT run on CPU or CUDA. The SkyPilot
+launcher ``sky-train-imagenet.yaml`` (co-located) is the canonical entry point.
 
-**Hardware constraint:** This code uses `torch_xla` SPMD and requires a TPU v6e slice to
-run. It will not run on CPU or CUDA. The SkyPilot launcher (`lamarck-infra/demo-pytorch/
-sky-train-imagenet.yaml`) remains the canonical way to launch training.
+Requires the ``gcp-in1k-finetune`` optional dependency group::
 
-**Dependency:** Requires the `gcp-in1k-finetune` optional dependency group:
     uv sync --group gcp-in1k-finetune
 
-See ./README.md for setup, environment variables, bucket layout, and launch commands.
+See ``./README.md`` for setup, environment variables, bucket layout, and the
+end-to-end train → verify → push workflow.
 """

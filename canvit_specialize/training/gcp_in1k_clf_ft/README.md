@@ -4,7 +4,6 @@ Training code used to finetune CanViT on ImageNet-1K on GCP TPU v6e. Produces th
 
 - **Checkpoint on HF:** [canvit/canvitb16-add-vpe-finetune-g128px-s512px-in1k-2026-04-06](https://huggingface.co/canvit/canvitb16-add-vpe-finetune-g128px-s512px-in1k-2026-04-06).
 - **Hardware:** TPU v6e-4 (`torch_xla` SPMD). Does NOT run on CPU or CUDA.
-- **Origin:** Moved from `~/code/lamarck-infra/demo-pytorch/` on 2026-04-16. One home for training code (this repo); lamarck-infra is now just the gcloud/sky ergonomics wrapper (not even — everything is here too).
 
 ## Files
 
@@ -37,9 +36,7 @@ Before the first `sky launch`:
 
 ### Worker-side auth (no action needed; self-contained in the yaml)
 
-The yaml carries `config: gcp: remote_identity: SERVICE_ACCOUNT` at the top. Worker VMs (managed-job workers, dev-cluster VMs, the jobs-controller) authenticate to GCP via the project's attached service account through the GCE metadata service — no SA key upload, no ADC expiry propagation from the launch laptop. This makes the yaml self-contained: a fresh collaborator on a new machine does NOT have to configure `~/.sky/config.yaml` before `sky jobs launch` will work.
-
-Full rationale: the original setting lived in `~/.sky/config.yaml` on the primary development machine; embedding it in the yaml eliminates the "works on my laptop only" pitfall. See `lamarck-infra/docs/auth-expiry.md` for the 2026-04-04 incident that led to this pattern.
+The yaml carries `config: gcp: remote_identity: SERVICE_ACCOUNT` at the top. Worker VMs (managed-job workers, dev-cluster VMs, the jobs-controller) authenticate to GCP via the project's attached service account through the GCE metadata service — no SA key upload, no ADC expiry propagation from the launch laptop. A fresh collaborator on a new machine does NOT have to configure `~/.sky/config.yaml` before `sky jobs launch` will work.
 
 ## Secrets handling (how keys flow into the VM)
 
