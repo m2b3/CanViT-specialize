@@ -126,4 +126,4 @@ run: |
     ${EARLY_STOP_DELTA:+--early-stop-delta "$EARLY_STOP_DELTA"} \
     --log-every 100 \
     --checkpoint-dir /ckpt/checkpoints/${SKYPILOT_TASK_ID:-${RUN_NAME:-manual}} \
-    --run-name "${RUN_NAME:-v6e4_lr${LR}_$(date +%m%d_%H%M)}"
+    --run-name "${RUN_NAME:-lr${LR}_$(date +%m%d_%H%M)}"
