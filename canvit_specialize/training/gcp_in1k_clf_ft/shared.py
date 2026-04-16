@@ -20,7 +20,6 @@ CKPT = "canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02"
 SCENE_SIZE = 512
 GLIMPSE_SIZE = 128
 CANVAS_GRID = 32
-N_CLASSES = 1000
 
 # ── ImageNet normalization ───────────────────────────────────────
 from canvit_pytorch.preprocess import IMAGENET_DEFAULT_MEAN as IMAGENET_MEAN, IMAGENET_DEFAULT_STD as IMAGENET_STD
@@ -85,41 +84,12 @@ class ShardedTFRecordDataset(torch.utils.data.IterableDataset):
                         continue
 
 
-def collate_imagenet(batch: list) -> tuple[torch.Tensor, torch.Tensor]:
-    """Stack images and labels into batched tensors."""
-    images = torch.stack([x[0] for x in batch])
-    labels = torch.tensor([x[1] for x in batch], dtype=torch.long)
-    return images, labels
-
-
 def find_shards(data_dir: str, split: str = "train") -> list[Path]:
     """Find TFRecord shards for a split ('train' or 'validation')."""
     shards = sorted(p for p in Path(data_dir).glob(f"{split}-*") if not p.suffix)
     assert len(shards) > 0, f"No {split} shards found in {data_dir}"
     log.info("Found %d %s shards in %s", len(shards), split, data_dir)
     return shards
-
-
-def make_dataloader(
-    data_dir: str,
-    batch_size: int,
-    num_workers: int,
-    split: str = "train",
-    transform=None,
-) -> torch.utils.data.DataLoader:
-    """Create an ImageNet TFRecord DataLoader. Yields [B, 3, 512, 512] scenes."""
-    if transform is None:
-        transform = TRAIN_TRANSFORM if split == "train" else VAL_TRANSFORM
-    shards = find_shards(data_dir, split=split)
-    dataset = ShardedTFRecordDataset(shards, transform=transform)
-    return torch.utils.data.DataLoader(
-        dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        drop_last=True,
-        collate_fn=collate_imagenet,
-        prefetch_factor=2 if num_workers > 0 else None,
-    )
 
 
 # ── Viewpoint policies ──────────────────────────────────────────

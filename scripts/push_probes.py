@@ -144,7 +144,7 @@ def _dinov3_variant(model_repo: str) -> str:
 
 # ---------- Batch-mode repo naming ----------
 
-def derive_repo_id(owner: str, meta: dict, probe_name: str) -> str:
+def derive_repo_id(owner: str, meta: dict) -> str:
     cfg = meta["config"]
     steps_k = cfg["max_steps"] // 1000
 
@@ -493,7 +493,7 @@ def _run_batch(args: Batch) -> None:
         if cfg.get("max_steps") != 40000:
             log.info("  SKIP %s (max_steps=%s, want 40000)", d.name, cfg.get("max_steps"))
             continue
-        repo_id = derive_repo_id(args.owner, meta, d.name)
+        repo_id = derive_repo_id(args.owner, meta)
         publish_probe(probe, meta, repo_id,
                       public=args.public, dry_run=args.dry_run)
         touched_feat_types.add(_resolve_feat_type(meta))
