@@ -79,7 +79,9 @@ sky jobs launch canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.ya
 
 **Dev iteration on a warm cluster (tight feedback loop):**
 ```bash
-# Cheap v6e-1 for import/setup checks (~$0.31/hr spot; prod uses v6e-4).
+# For import/setup checks, override the yaml's v6e-4 to a cheaper v6e-1.
+# Sky prints the current spot price in the launch output; don't rely on
+# hardcoded numbers anywhere.
 sky launch canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.yaml -c tpu-dev -i 30 --yes \
   --gpus tpu-v6e-1:1 --secret COMET_API_KEY --secret HF_TOKEN
 
