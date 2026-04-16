@@ -30,10 +30,16 @@ Extras: `torch_xla[tpu]==2.9.0` (Linux only), `tfrecord` (IN1K TFRecord decode).
 Before the first `sky launch`:
 
 1. **SkyPilot:** `pip install skypilot[gcp]` (or `uv tool install skypilot[gcp]`). Verify: `sky --version`.
-2. **GCP application default credentials:** `gcloud auth application-default login`. Required so SkyPilot + gcsfuse can talk to GCS. Verify: `sky check gcp` shows `[compute, storage] enabled`.
+2. **GCP application default credentials:** `gcloud auth application-default login`. Required so SkyPilot + gcsfuse can talk to GCS. Verify: `sky check gcp` shows `[compute, storage] enabled`. User OAuth expires every few hours; re-run this command before launching if you've been away. (Worker VM auth is separate — see below, no expiry.)
 3. **Comet API key** — create one at `https://www.comet.com/` (free tier), save to `~/.config/comet_api_key.txt` (the path is a project convention, not a Comet default). `chmod 600` that file. Without it, training runs but does not log metrics to Comet.
 4. **HuggingFace token** — `huggingface-cli login` writes the token to `~/.cache/huggingface/token` (HF's default path). The token needs "write" scope if you plan to `scripts/push_finetuned.py` back to HF.
 5. **GCS buckets:** confirm `gs://lamarck-<region>/datasets/imagenet/` has the IN1K TFRecord shards for whichever `<region>` you want to train in, and `gs://lamarck-us-central1/` exists for checkpoint storage. Override the bucket name via `LAMARCK_GCS_BUCKET` env var in the sky yaml's setup script if you don't want the `lamarck-*` naming convention.
+
+### Worker-side auth (no action needed; self-contained in the yaml)
+
+The yaml carries `config: gcp: remote_identity: SERVICE_ACCOUNT` at the top. Worker VMs (managed-job workers, dev-cluster VMs, the jobs-controller) authenticate to GCP via the project's attached service account through the GCE metadata service — no SA key upload, no ADC expiry propagation from the launch laptop. This makes the yaml self-contained: a fresh collaborator on a new machine does NOT have to configure `~/.sky/config.yaml` before `sky jobs launch` will work.
+
+Full rationale: the original setting lived in `~/.sky/config.yaml` on the primary development machine; embedding it in the yaml eliminates the "works on my laptop only" pitfall. See `lamarck-infra/docs/auth-expiry.md` for the 2026-04-04 incident that led to this pattern.
 
 ## Secrets handling (how keys flow into the VM)
 
