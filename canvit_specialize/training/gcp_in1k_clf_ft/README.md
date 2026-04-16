@@ -75,7 +75,19 @@ uv run python scripts/push_finetuned.py \
 
 **Defaults live in `sky-train-imagenet.yaml`** (`envs:` block). `uv run python -m canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet --help` for the full tyro CLI.
 
-Non-obvious choices:
+### Scaling across TPU slices
+
+Defaults target **v6e-4 (4 chips)**. If running on a different slice, scale **batch size and LR linearly with chip count** — the code does NOT auto-scale:
+
+| Slice | BATCH_SIZE | LR |
+|-------|------------|-----|
+| v6e-1 | 64 | 6.25e-6 |
+| v6e-4 (default) | 256 | 2.5e-5 |
+| v6e-8 | 512 | 5.0e-5 |
+
+B=256 on v6e-1 OOMs at XLA compile (~106 GB needed, 31 GB per chip). Override via `--env BATCH_SIZE=64 --env LR=6.25e-6` on the launch command.
+
+### Non-obvious choices
 
 - **`chunk_size == n_glimpses`** — full BPTT; chunked BPTT drops final-step gradient quality.
 - **`min_viewpoint_scale=0.05`** — matches pretraining `p(s) ∝ (1-s)` truncation.

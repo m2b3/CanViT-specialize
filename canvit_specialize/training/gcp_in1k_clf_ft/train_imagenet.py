@@ -66,17 +66,6 @@ def _shard_batch(glimpses, labels, vp_centers, vp_scales, device, mesh):
     return glimpses, labels, vp_centers, vp_scales
 
 
-def _hbm_usage() -> dict[str, float]:
-    try:
-        info = xm.get_memory_info(torch_xla.device())
-    except RuntimeError:
-        return {}
-    used = info["bytes_used"] / 1e9
-    limit = info["bytes_limit"] / 1e9
-    peak = info.get("peak_bytes_used", info["bytes_used"]) / 1e9
-    return {"hbm_used_gb": used, "hbm_limit_gb": limit, "hbm_peak_gb": peak, "hbm_pct": used / limit * 100}
-
-
 # ── Comet ─────────────────────────────────────────────────────────────────
 
 
@@ -375,9 +364,6 @@ def train(args: argparse.Namespace) -> float:
             "sky_task_id": os.environ.get("SKYPILOT_TASK_ID", ""),
             "sky_user": os.environ.get("SKYPILOT_USER", ""),
         })
-        hbm = _hbm_usage()
-        if hbm:
-            exp.log_parameters({"hbm_limit_gb": hbm["hbm_limit_gb"]})
     else:
         log.info("Comet skipped — COMET_API_KEY not set")
 
@@ -397,10 +383,7 @@ def train(args: argparse.Namespace) -> float:
             data_iter=train_iter, grad_clip=args.grad_clip,
             label_smoothing=args.label_smoothing, mesh=mesh)
     torch_xla.sync(wait=True)
-    hbm = _hbm_usage()
-    hbm_str = (f"HBM: {hbm['hbm_used_gb']:.1f}/{hbm['hbm_limit_gb']:.1f}GB ({hbm['hbm_pct']:.0f}%), "
-               f"peak {hbm['hbm_peak_gb']:.1f}GB") if hbm else "HBM info unavailable (SPMD)"
-    log.info("Compiled [%.1fs]. %s", time.perf_counter() - t0, hbm_str)
+    log.info("Compiled [%.1fs]", time.perf_counter() - t0)
 
     # ── Checkpoint helper ──
     def _ckpt(step: int, filename: str = "latest.pt") -> None:
@@ -474,7 +457,6 @@ def train(args: argparse.Namespace) -> float:
                      N-1, metrics[f'loss_t{N-1}'],
                      metrics['accuracy_t0'] * 100, N-1, metrics['accuracy'] * 100,
                      metrics['grad_norm'], metrics['lr'], metrics['scenes_per_sec'])
-            metrics.update(_hbm_usage())
             if exp:
                 exp.log_metrics(metrics, step=step)
             loss_sum.zero_()
