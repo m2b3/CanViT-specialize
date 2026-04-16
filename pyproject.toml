@@ -41,6 +41,15 @@ dev = [
     "ruff>=0.14.14",
 ]
 
+# Extra dependencies for canvit_specialize/training/gcp_in1k_clf_ft/ (IN1K finetuning
+# on GCP TPU v6e). Not required for ADE20K probe training or DINOv3 IN1K probe training.
+# Install only on the TPU VM that runs the finetuning job:
+#     uv sync --group gcp-in1k-finetune
+gcp-in1k-finetune = [
+    "torch_xla[tpu]==2.9.0; sys_platform == 'linux'",
+    "tfrecord",
+]
+
 [tool.pytest.ini_options]
 pythonpath = ["."]
 filterwarnings = ["ignore:Failed to initialize NumPy:UserWarning"]
