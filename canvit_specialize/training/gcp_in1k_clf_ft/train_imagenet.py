@@ -47,20 +47,84 @@ log.info("imports done [%.1fs]", time.perf_counter() - _PYTHON_START)
 xla_backends.set_mat_mul_precision("default")
 
 
+# ── Startup diagnostics ───────────────────────────────────────────────────
+
+
+_ENV_ALLOWLIST_PREFIXES = (
+    "XLA_", "LIBTPU", "PJRT_", "PT_XLA", "TPU_", "OMP_", "MKL_", "TF_CPP",
+    "SKYPILOT_", "PYTORCH_", "NEURON_", "GRPC_",
+)
+# Never log anything matching these substrings even if prefix matches — defense
+# in depth so --secret values can't slip in via an aliased prefix.
+_ENV_SECRET_SUBSTRINGS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
+
+
+def _log_environment_diagnostics() -> None:
+    """Dump versions + precision + env vars + device topology before any XLA compile.
+
+    Called once at train() entry so every run's log has enough context to reproduce
+    or diagnose. Env dump is allowlisted to avoid leaking secrets.
+    """
+    import torchvision
+    log.info("─── environment diagnostics ───")
+    log.info("torch        = %s  (%s)", torch.__version__, torch.__file__)
+    log.info("torchvision  = %s", torchvision.__version__)
+    log.info("torch_xla    = %s  (%s)", torch_xla.__version__, torch_xla.__file__)
+    try:
+        import libtpu
+        log.info("libtpu       = %s", getattr(libtpu, "__version__", "?"))
+    except Exception as e:  # noqa: BLE001
+        log.info("libtpu       = (import failed: %s)", e)
+    log.info("mat_mul_prec = %s (torch_xla)", xla_backends.get_mat_mul_precision())
+    log.info("f32 matmul   = %s (torch core)", torch.get_float32_matmul_precision())
+    log.info("CPU count    = %s", os.cpu_count())
+    log.info("device count = %d (xr.global_runtime_device_count)", xr.global_runtime_device_count())
+    log.info("─── env vars (allowlisted) ───")
+    for k in sorted(os.environ):
+        if not k.startswith(_ENV_ALLOWLIST_PREFIXES):
+            continue
+        if any(s in k.upper() for s in _ENV_SECRET_SUBSTRINGS):
+            log.info("  %s = <redacted>", k)
+            continue
+        log.info("  %s = %s", k, os.environ[k])
+    log.info("─── end diagnostics ───")
+
+
+def _log_sharding_spec(tensor: torch.Tensor, name: str) -> None:
+    """Print the XLA sharding spec for a single tensor. One-shot; callers should gate."""
+    try:
+        import torch_xla as _txla
+        spec = _txla._XLAC._get_xla_sharding_spec(tensor)
+    except Exception as e:  # noqa: BLE001
+        spec = f"<error: {e}>"
+    log.info("sharding[%s] shape=%s dtype=%s spec=%s",
+             name, tuple(tensor.shape), tensor.dtype, spec)
+
+
 # ── SPMD ──────────────────────────────────────────────────────────────────
 
 
+_FIRST_INIT_STATE = True
+_FIRST_SHARD_BATCH = True
+
+
 def _init_state(clf: CanViTForImageClassification, batch_size: int, device, mesh):
+    global _FIRST_INIT_STATE
     state = clf.init_state(batch_size=batch_size, canvas_grid_size=CANVAS_GRID)
     state.canvas = state.canvas.to(device)
     state.recurrent_cls = state.recurrent_cls.to(device)
     if mesh is not None:
         xs.mark_sharding(state.canvas, mesh, ('data', None, None))
         xs.mark_sharding(state.recurrent_cls, mesh, ('data', None, None))
+    if _FIRST_INIT_STATE:
+        _FIRST_INIT_STATE = False
+        _log_sharding_spec(state.canvas, "state.canvas")
+        _log_sharding_spec(state.recurrent_cls, "state.recurrent_cls")
     return state
 
 
 def _shard_batch(glimpses, labels, vp_centers, vp_scales, device, mesh):
+    global _FIRST_SHARD_BATCH
     glimpses = glimpses.to(device)
     labels = labels.to(device)
     vp_centers = vp_centers.to(device)
@@ -68,6 +132,10 @@ def _shard_batch(glimpses, labels, vp_centers, vp_scales, device, mesh):
     if mesh is not None:
         xs.mark_sharding(glimpses, mesh, (None, 'data', None, None, None))
         xs.mark_sharding(labels, mesh, ('data',))
+    if _FIRST_SHARD_BATCH:
+        _FIRST_SHARD_BATCH = False
+        _log_sharding_spec(glimpses, "batch.glimpses")
+        _log_sharding_spec(labels, "batch.labels")
     return glimpses, labels, vp_centers, vp_scales
 
 
@@ -273,6 +341,7 @@ def _run_validation(
 def train(args: argparse.Namespace) -> float:
     train_start = time.perf_counter()
     log.info("train() entered [%.1fs since Python start]", time.perf_counter() - _PYTHON_START)
+    _log_environment_diagnostics()
 
     # SPMD
     n_devices = xr.global_runtime_device_count()
@@ -280,7 +349,9 @@ def train(args: argparse.Namespace) -> float:
     if n_devices > 1:
         xr.use_spmd()
         mesh = Mesh(np.arange(n_devices), (n_devices,), ('data',))
-        log.info("SPMD: %d devices, mesh=(%d,)", n_devices, n_devices)
+        log.info("SPMD: %d devices, mesh=(%d,), partition='data'", n_devices, n_devices)
+    else:
+        log.info("No SPMD: only %d device; mark_sharding skipped", n_devices)
 
     device = torch_xla.device()
     N = args.n_glimpses
