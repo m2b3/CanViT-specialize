@@ -26,7 +26,7 @@ Extras: `torch_xla[tpu]==2.9.0` (Linux only), `tfrecord` (IN1K TFRecord decode).
 
 ### torch + torchvision pin (TPU-specific)
 
-`torch_xla[tpu]==2.9.0` is ABI-linked to `torch==2.9.0`'s CPU wheel. `canvit-specialize`'s top-level `[tool.uv.sources]` routes `torch` through the `pytorch-cu128` index on all Linux (for crockett RTX 4090 / Nibi H100), which gives us the CUDA-ABI wheel — **incompatible** with `torch_xla[tpu]`'s `_XLAC.so`. `setup_tpu.sh` therefore does an explicit `uv pip install --force-reinstall --no-deps torch==2.9.0 torchvision==0.24.0 --index-url https://pypi.org/simple/` after the `uv sync` step to swap in the CPU-ABI wheels. That is the SSOT for the TPU-side pin — don't duplicate the versions in `pyproject.toml`.
+The `gcp-in1k-finetune` dep group in `pyproject.toml` pins `torch==2.9.0` and `torchvision==0.24.0`. This is load-bearing: `torch_xla[tpu]==2.9.0`'s wheel metadata declares no torch dep, so without the pin uv picks `torch==2.11.0+cu128` (latest from the `pytorch-cu128` index), which has an autograd C++ ABI incompatible with `torch_xla`'s `_XLAC.so` (`undefined symbol: _wrap_outputs`). The `+cu128` variant at the pinned version works fine — the autograd API is identical across CPU/CUDA builds of the same torch release. No post-install patching needed.
 
 ## Prerequisites (one-time, on the launch laptop)
 

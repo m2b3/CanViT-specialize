@@ -46,12 +46,18 @@ dev = [
 # Install only on the TPU VM that runs the finetuning job:
 #     uv sync --group gcp-in1k-finetune
 gcp-in1k-finetune = [
-    # Note: torch + torchvision versions are NOT pinned here. The top-level
-    # `[tool.uv.sources]` routes them through pytorch-cu128 on all Linux,
-    # whose CUDA-ABI wheels are incompatible with torch_xla[tpu]==2.9.0's
-    # _XLAC.so. The TPU-compatible pin (CPU wheel from PyPI) is applied in
-    # setup_tpu.sh via `uv pip install --force-reinstall` — single source
-    # of truth lives there.
+    # torch==2.9.0 pin is load-bearing. torch_xla==2.9.0's wheel metadata
+    # unusually declares NO torch dependency (only absl-py, numpy, pyyaml,
+    # requests), so without an explicit pin here uv's resolver picks the
+    # latest torch matching `torch>=2.0.0` from the pytorch-cu128 index
+    # (currently torch==2.11.0+cu128). torch 2.10+ added a trailing `bool`
+    # parameter to `torch::autograd::_wrap_outputs`, breaking torch_xla
+    # 2.9.0's _XLAC.so ABI with `undefined symbol: _wrap_outputs` at
+    # `import torch_xla`. Pinning just the version is sufficient — the
+    # cu128 variant (torch==2.9.0+cu128) has the same autograd C++ API as
+    # the CPU variant. Tested on TPU VM 2026-04-16.
+    "torch==2.9.0",
+    "torchvision==0.24.0",
     "torch_xla[tpu]==2.9.0; sys_platform == 'linux'",
     "tfrecord",
 ]

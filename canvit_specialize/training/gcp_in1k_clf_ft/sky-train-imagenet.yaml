@@ -121,13 +121,8 @@ run: |
   ts "checkpoint mount at /ckpt (MOUNT_CACHED)"
   ls /ckpt/    # real error if not mounted; we want to see it
 
-  # --no-sync is load-bearing: setup_tpu.sh already force-reinstalled
-  # torch==2.9.0 (CPU-ABI, matching torch_xla==2.9.0). Without --no-sync,
-  # `uv run --group gcp-in1k-finetune` re-syncs from pyproject.toml, which
-  # routes torch through pytorch-cu128 and restores torch==2.11+cu128 —
-  # breaking torch_xla with `undefined symbol: _wrap_outputs`.
   ts "uv run starting..."
-  uv run --no-sync --group gcp-in1k-finetune python -u -m canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet \
+  uv run --group gcp-in1k-finetune python -u -m canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet \
     --data-dir ~/gcs/datasets/imagenet \
     --batch-size $BATCH_SIZE \
     --epochs $EPOCHS \
