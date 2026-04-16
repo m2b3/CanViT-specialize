@@ -30,11 +30,6 @@ import torch_xla.runtime as xr
 from canvit_pytorch import CanViTForImageClassification, Viewpoint
 from torch_xla.distributed.spmd import Mesh
 
-# MXU matmul precision: pin to 1-pass bf16-internal. This matches the current
-# torch_xla default, but pinning guards against future default flips; "high" /
-# "highest" do 3× / 6× the MXU work. Must be set before any XLA compile.
-xla_backends.set_mat_mul_precision("default")
-
 from .shared import CANVAS_GRID, IMAGENET_MEAN, IMAGENET_STD, load_classifier, make_multi_glimpse_dataloader
 from .training_utils import ValLoader, apply_model_weights, load_checkpoint, make_lr_lambda, maybe_resume, save_checkpoint, should_early_stop
 from .viz import log_val_samples as _log_val_samples
@@ -45,6 +40,11 @@ COMET_PROJECT = "canvit-in1k-finetune"
 COMET_WORKSPACE = "m2b3-ava"
 
 log.info("imports done [%.1fs]", time.perf_counter() - _PYTHON_START)
+
+# MXU matmul precision: pin to 1-pass bf16-internal. This matches the current
+# torch_xla default, but pinning guards against future default flips; "high" /
+# "highest" do 3× / 6× the MXU work. Must be set before any XLA compile.
+xla_backends.set_mat_mul_precision("default")
 
 
 # ── SPMD ──────────────────────────────────────────────────────────────────
