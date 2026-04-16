@@ -81,12 +81,38 @@ Fine-tuning differs from frozen-probe training in three ways:
 Single feature type only (`canvas_hidden` by default) — the backbone is shared,
 so multi-probe fine-tuning would double-step it.
 
-### DINOv3 baseline probe
+### DINOv3 ADE20K baseline probe
 
 ```bash
 uv run python -m canvit_specialize.training.ade20k train-dinov3-probe \
   --scene-size 512 --teacher-repo facebook/dinov3-vitb16-pretrain-lvd1689m
 ```
+
+### DINOv3 IN1K classification probe
+
+Two-phase pipeline: pre-extract CLS tokens from frozen DINOv3, then run
+Optuna HP search over the cached features. See `--help` for all options.
+
+```bash
+export IMAGENET_ROOT=/path/to/ILSVRC2012
+export FEATURES_DIR=/path/to/features
+
+# Phase 1: extract CLS tokens (val split, then N train passes for augmentation epochs)
+uv run python -m canvit_specialize.training.in1k extract --split val
+uv run python -m canvit_specialize.training.in1k extract --split train  # run N times
+
+# Phase 2: Optuna HP search over cached features
+uv run python -m canvit_specialize.training.in1k train
+```
+
+On Nibi (SLURM):
+```bash
+sbatch slurm/extract_in1k_dinov3.sbatch --split val
+sbatch --array=1-2 slurm/extract_in1k_dinov3.sbatch --split train
+sbatch slurm/train_in1k_dinov3.sbatch
+```
+
+Published probes: https://github.com/yberreby/dinov3-in1k-probes
 
 ### Smoke testing (validate env / import / dataset extraction without burning a long job)
 
