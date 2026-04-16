@@ -125,10 +125,7 @@ def _train_step(
 
     for g in range(N):
         vp = Viewpoint(centers=vp_centers[g], scales=vp_scales[g])
-        out = clf.backbone_forward(glimpse=glimpses[g], state=state, viewpoint=vp)
-        state = out.state
-        logits = clf.head_forward(out.state.recurrent_cls[:, 0])
-
+        logits, state = clf(glimpse=glimpses[g], state=state, viewpoint=vp)
         step_loss = F.cross_entropy(logits, labels, label_smoothing=label_smoothing)
         chunk_loss = chunk_loss + step_loss
         total_loss = total_loss + step_loss.detach()
@@ -212,10 +209,7 @@ def _validate(
 
         for g in range(N):
             vp = Viewpoint(centers=vp_centers[g], scales=vp_scales[g])
-            out = clf.backbone_forward(glimpse=glimpses[g], state=state, viewpoint=vp)
-            state = out.state
-            logits = clf.head_forward(out.state.recurrent_cls[:, 0])
-
+            logits, state = clf(glimpse=glimpses[g], state=state, viewpoint=vp)
             correct_per_t[g] += (logits.argmax(dim=-1) == labels).sum()
             loss_per_t_sum[g] += F.cross_entropy(logits, labels)
 
