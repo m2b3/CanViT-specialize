@@ -15,6 +15,31 @@ Not on PyPI. Install via git:
 uv add "canvit-specialize @ git+https://github.com/m2b3/CanViT-specialize.git"
 ```
 
+### torch wheel per target
+
+The base `uv sync` pulls `torch==2.9.0` from PyPI, which on Linux x86_64 IS
+the CUDA-12.8 build — correct for Nibi H100 and crockett RTX 4090.
+
+- **GCP TPU v6e (IN1K finetune, `--group gcp-in1k-finetune`)**: `pyproject.toml`
+  group-scopes the `pytorch-cpu` index so the TPU group installs
+  `torch==2.9.0+cpu` / `torchvision==0.24.0+cpu`. No nvidia_* cu12 satellites,
+  no `libtorch_cuda.so`. The `setup_tpu.sh` invokes
+  `uv sync --group gcp-in1k-finetune` directly — no post-sync reinstall
+  needed.
+- **Nibi H100 / crockett RTX 4090 (ADE20K probe training, default deps)**:
+  no action needed. If a specific box needs a different CUDA version
+  (e.g. cu121 for an older driver), set `UV_INDEX_URL` at sync time:
+  ```bash
+  UV_INDEX_URL=https://download.pytorch.org/whl/cu121 uv sync
+  ```
+- **macOS dev**: PyPI default is already CPU-only on Darwin — no special
+  handling.
+
+PyPI's `torch==2.9.0` for Linux is byte-identical to `torch==2.9.0+cu128`
+(verified via `sha256sum libtorch_cpu.so`); the `+cu128` suffix is a
+dist-info label only. The truly CPU-only wheel lives exclusively at
+`https://download.pytorch.org/whl/cpu`.
+
 ## Using a pre-trained probe
 
 ```python
