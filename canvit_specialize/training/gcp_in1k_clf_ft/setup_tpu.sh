@@ -86,4 +86,18 @@ ts "uv sync --group gcp-in1k-finetune..."
 uv sync --group gcp-in1k-finetune
 ts "uv sync: done"
 
+# 6) Force torch + torchvision to the PyPI (CPU-ABI) wheels.
+# canvit-specialize's [tool.uv.sources] routes torch through pytorch-cu128 on
+# all Linux (good for crockett / Nibi GPUs). On TPU, cu128 wheels have a
+# different C++ ABI than torch_xla==2.9.0's _XLAC.so was compiled against —
+# the `uv sync` above leaves us with torch==2.11+cu128, which torch_xla refuses
+# to load (`undefined symbol: torch::autograd::_wrap_outputs`).
+# `--force-reinstall --no-deps` swaps just the two offending wheels with no
+# re-resolution, keeping the rest of the sync'd env intact.
+ts "force-reinstalling torch==2.9.0 CPU wheel (torch_xla ABI match)..."
+uv pip install --force-reinstall --no-deps \
+    torch==2.9.0 torchvision==0.24.0 \
+    --index-url https://pypi.org/simple/
+ts "torch: pinned"
+
 ts "Setup complete: uv $(uv --version), Python $(uv run --python 3.12 -- python --version 2>&1 | tail -1), gcsfuse $(gcsfuse --version 2>/dev/null | head -1 || echo 'N/A')"
