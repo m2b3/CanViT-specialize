@@ -24,6 +24,10 @@ uv sync --group gcp-in1k-finetune
 ```
 Extras: `torch_xla[tpu]==2.9.0` (Linux only), `tfrecord` (IN1K TFRecord decode). Base install stays lean for users who only want ADE20K probe training.
 
+### torch + torchvision pin (TPU-specific)
+
+`torch_xla[tpu]==2.9.0` is ABI-linked to `torch==2.9.0`'s CPU wheel. `canvit-specialize`'s top-level `[tool.uv.sources]` routes `torch` through the `pytorch-cu128` index on all Linux (for crockett RTX 4090 / Nibi H100), which gives us the CUDA-ABI wheel — **incompatible** with `torch_xla[tpu]`'s `_XLAC.so`. `setup_tpu.sh` therefore does an explicit `uv pip install --force-reinstall --no-deps torch==2.9.0 torchvision==0.24.0 --index-url https://pypi.org/simple/` after the `uv sync` step to swap in the CPU-ABI wheels. That is the SSOT for the TPU-side pin — don't duplicate the versions in `pyproject.toml`.
+
 ## Prerequisites (one-time, on the launch laptop)
 
 Before the first `sky launch`:
