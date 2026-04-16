@@ -8,8 +8,15 @@ path.
 
 ## Installation
 
+Not on PyPI. Install via git:
+
 ```bash
-uv add canvit-specialize
+# As a dep in another project's pyproject.toml:
+# [tool.uv.sources]
+# canvit-specialize = { git = "https://github.com/m2b3/CanViT-specialize.git" }
+
+# Or directly in an ad-hoc venv:
+uv add "canvit-specialize @ git+https://github.com/m2b3/CanViT-specialize.git"
 ```
 
 ## Using a pre-trained probe
