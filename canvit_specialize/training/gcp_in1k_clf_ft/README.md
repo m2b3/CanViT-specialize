@@ -79,18 +79,20 @@ sky jobs launch canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.ya
 
 **Dev iteration on a warm cluster (tight feedback loop):**
 ```bash
-# Launch once, stays up.
+# Cheap v6e-1 for import/setup checks (~$0.31/hr spot; prod uses v6e-4).
 sky launch canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.yaml -c tpu-dev -i 30 --yes \
-  --secret COMET_API_KEY --secret HF_TOKEN
+  --gpus tpu-v6e-1:1 --secret COMET_API_KEY --secret HF_TOKEN
 
-# Re-run after local code changes (syncs workdir).
+# Interactive debugging (ssh alias auto-registered by sky).
+ssh tpu-dev
+# Or a one-shot command:
+ssh tpu-dev 'cd ~/sky_workdir && uv run --group gcp-in1k-finetune python -c "import torch_xla; print(torch_xla.__version__)"'
+
+# Re-sync workdir after local code changes + re-run yaml.
 sky exec tpu-dev canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.yaml
 
-# Pause to save $ (auto-stops after 30 min idle via `-i 30`).
-sky stop tpu-dev
-
-# Fully terminate.
-sky down tpu-dev
+sky stop tpu-dev  # pause (resumes later)
+sky down tpu-dev  # terminate
 ```
 
 ### 2. Verify locally (optional)
