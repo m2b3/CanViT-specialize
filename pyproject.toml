@@ -46,12 +46,12 @@ dev = [
 # Install only on the TPU VM that runs the finetuning job:
 #     uv sync --group gcp-in1k-finetune
 gcp-in1k-finetune = [
-    # torch_xla 2.9.0's _XLAC.so is ABI-linked to torch 2.9.0's CPU wheel.
-    # Must match; torch 2.11 (latest cu128) drops symbols torch_xla expects.
-    # Force-reinstalled from plain PyPI in setup_tpu.sh to bypass the
-    # pytorch-cu128 index (which ships CUDA-ABI wheels unusable on TPU).
-    "torch==2.9.0",
-    "torchvision==0.24.0",
+    # Note: torch + torchvision versions are NOT pinned here. The top-level
+    # `[tool.uv.sources]` routes them through pytorch-cu128 on all Linux,
+    # whose CUDA-ABI wheels are incompatible with torch_xla[tpu]==2.9.0's
+    # _XLAC.so. The TPU-compatible pin (CPU wheel from PyPI) is applied in
+    # setup_tpu.sh via `uv pip install --force-reinstall` — single source
+    # of truth lives there.
     "torch_xla[tpu]==2.9.0; sys_platform == 'linux'",
     "tfrecord",
 ]

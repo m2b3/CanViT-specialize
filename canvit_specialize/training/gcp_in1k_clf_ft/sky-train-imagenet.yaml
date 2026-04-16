@@ -16,14 +16,13 @@
 
 name: canvit-in1k-finetune
 
-# Per-task SkyPilot config. Worker VMs (managed-job workers, dev-cluster VMs,
-# jobs-controller) authenticate to GCP via the project's attached service
-# account through the GCE metadata service — no SA key upload, no ADC expiry
-# propagated from the launch laptop. Embedding it here (vs. relying only on
-# `~/.sky/config.yaml`) makes a fresh-machine launch self-contained.
-config:
-  gcp:
-    remote_identity: SERVICE_ACCOUNT
+# Worker-side GCP auth (managed-job workers, dev-cluster VMs, jobs-controller)
+# uses the attached service account via the GCE metadata service. That mapping
+# lives in `~/.sky/config.yaml` at the user level:
+#     gcp:
+#       remote_identity: SERVICE_ACCOUNT
+# SkyPilot rejects `remote_identity` as a per-task field (see InvalidSkyPilotConfigError).
+# If you're setting up a fresh laptop, configure `~/.sky/config.yaml` once.
 
 resources:
   # v6e-4: 4 chips, SPMD auto-enabled. Regions ordered by spot price
