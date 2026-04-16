@@ -60,6 +60,13 @@ envs:
   EVAL_N_GLIMPSES: "0"
   EARLY_STOP_DELTA: ""
   RUN_NAME: ""
+  # A/B perf-debug switches (leave empty for normal runs):
+  #   FORCE_PLAIN_TORCH=1 — reinstall plain torch==2.9.0 from PyPI over +cu128
+  #   PT_XLA_DEBUG_LEVEL=2 — per-compile Python-frame traces on stderr
+  #   TORCH_LOGS=recompiles — Dynamo recompile traces (no-op without torch.compile)
+  FORCE_PLAIN_TORCH: ""
+  PT_XLA_DEBUG_LEVEL: ""
+  TORCH_LOGS: ""
 
   # Flagship HPs (match the published checkpoint). LR should be scaled
   # linearly with batch size if changed.
