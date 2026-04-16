@@ -77,15 +77,7 @@ uv run python scripts/push_finetuned.py \
 
 ### Scaling across TPU slices
 
-Defaults target **v6e-4 (4 chips)**. If running on a different slice, scale **batch size and LR linearly with chip count** — the code does NOT auto-scale:
-
-| Slice | BATCH_SIZE | LR |
-|-------|------------|-----|
-| v6e-1 | 64 | 6.25e-6 |
-| v6e-4 (default) | 256 | 2.5e-5 |
-| v6e-8 | 512 | 5.0e-5 |
-
-B=256 on v6e-1 OOMs at XLA compile (~106 GB needed, 31 GB per chip). Override via `--env BATCH_SIZE=64 --env LR=6.25e-6` on the launch command.
+Defaults in `sky-train-imagenet.yaml` target v6e-4. On a different slice, scale `BATCH_SIZE` and `LR` linearly with chip count (the code does NOT auto-scale); override via `--env BATCH_SIZE=… --env LR=…`. Running the v6e-4 defaults on a smaller slice will OOM at XLA compile.
 
 ### Non-obvious choices
 

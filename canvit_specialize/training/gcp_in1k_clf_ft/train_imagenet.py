@@ -24,7 +24,6 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch_xla
-import torch_xla.core.xla_model as xm
 import torch_xla.distributed.spmd as xs
 import torch_xla.runtime as xr
 from canvit_pytorch import CanViTForImageClassification, Viewpoint
