@@ -1,18 +1,7 @@
-"""Push a finetuned CanViTForImageClassification checkpoint to HuggingFace Hub.
+"""Publish a finetuned CanViTForImageClassification checkpoint to HuggingFace Hub.
 
-Reads a training checkpoint from `canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet`
-(layout: {"model_state_dict": {"model.*", "norm.*", "head.*"}, ...}), remaps the keys
-to the `CanViTForImageClassification` format (backbone.*, norm.*, head.*), strips
-pretraining-only prefixes, validates via a forward pass, pushes weights + config
-to HF, and augments config.json with Comet hyperparameters if `COMET_API_KEY` is set.
-
-Usage:
-    COMET_API_KEY=$(cat ~/.config/comet_api_key.txt) uv run python scripts/push_finetuned.py \\
-        --checkpoint /path/to/best.pt \\
-        --pretrained-repo canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02 \\
-        --probe-repo yberreby/dinov3-vitb16-lvd1689m-in1k-512x512-linear-clf-probe \\
-        --canvas-grid 32 \\
-        --repo-id canvit/canvitb16-add-vpe-finetune-... [--public]
+Invocation: `uv run python scripts/push_finetuned.py --help`
+End-to-end workflow context: canvit_specialize/training/gcp_in1k_clf_ft/README.md.
 """
 
 import logging
