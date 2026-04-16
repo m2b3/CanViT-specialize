@@ -1,0 +1,138 @@
+# CanViT IN1K finetuning on TPU v6e. SkyPilot managed job.
+#
+# Launch (from canvit-specialize repo root):
+#   export COMET_API_KEY=$(cat ~/.config/comet_api_key.txt)
+#   export HF_TOKEN=$(cat ~/.cache/huggingface/token)
+#   sky jobs launch canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.yaml -y \
+#     --secret COMET_API_KEY --secret HF_TOKEN
+#
+# Dev iteration on a warm cluster:
+#   sky launch canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.yaml -c tpu -i 30 --yes \
+#     --secret COMET_API_KEY --secret HF_TOKEN
+#   sky exec tpu canvit_specialize/training/gcp_in1k_clf_ft/sky-train-imagenet.yaml
+#
+# HP override example:
+#   sky jobs launch ... --env LR=5e-4 --env RUN_NAME=lr_sweep_5e-4
+
+name: canvit-in1k-finetune
+
+resources:
+  # v6e-4: 4 chips, SPMD auto-enabled. Regions ordered by spot price
+  # (cheapest first), co-located with GCS data/checkpoint buckets.
+  ordered:
+    - accelerators: tpu-v6e-4
+      accelerator_args: {runtime_version: v2-alpha-tpuv6e}
+      use_spot: true
+      infra: gcp/asia-southeast1  # ~$1.24/hr spot
+    - accelerators: tpu-v6e-4
+      accelerator_args: {runtime_version: v2-alpha-tpuv6e}
+      use_spot: true
+      infra: gcp/us-central1      # ~$2.16/hr spot
+    - accelerators: tpu-v6e-4
+      accelerator_args: {runtime_version: v2-alpha-tpuv6e}
+      use_spot: true
+      infra: gcp/us-east5          # ~$4.88/hr spot (capacity fallback)
+  job_recovery:
+    strategy: EAGER_NEXT_REGION
+    max_restarts_on_errors: 2
+
+# workdir = canvit-specialize repo root (`. ` when launched from there). The
+# whole repo ships to the VM so `uv sync --group gcp-in1k-finetune` can pull
+# local code + every dep.
+workdir: .
+
+# Checkpoints: MOUNT_CACHED writes to local disk, syncs to GCS async (rclone,
+# not gcsfuse) — avoids gcsfuse auth-expiry crashes. Bucket pinned to
+# us-central1 so checkpoints survive EAGER_NEXT_REGION failover.
+file_mounts:
+  /ckpt:
+    source: gs://lamarck-us-central1
+    mode: MOUNT_CACHED
+    type: MODEL_CHECKPOINT_RW
+
+secrets:
+  COMET_API_KEY:
+  HF_TOKEN:
+
+envs:
+  NUM_WORKERS: "32"
+  GRAD_CLIP: "1.0"
+  LABEL_SMOOTHING: "0.1"
+  MIN_VP_SCALE: "0.05"
+  EVAL_C2F: ""
+  INIT_FROM: ""
+  EVAL_N_GLIMPSES: "0"
+  EARLY_STOP_DELTA: ""
+  RUN_NAME: ""
+
+  # Flagship finetuning HPs (matches the published
+  # canvit/canvitb16-add-vpe-finetune-g128px-s512px-in1k-2026-04-06 checkpoint).
+  # N=4, B=256, lr=2.5e-5, wd=1e-4, warmup=25000 (5ep), 20ep, chunk=4 (full BPTT).
+  # LR scales linearly with batch size (2.5e-5 @ B=256). WD=0.01 causes divergence
+  # in multi-glimpse regime (30× higher grad norms vs wd=1e-3).
+  BATCH_SIZE: "256"
+  EPOCHS: "20"
+  LR: "2.5e-5"
+  WEIGHT_DECAY: "1e-4"
+  WARMUP_STEPS: "25000"
+  N_GLIMPSES: "4"
+  CHUNK_SIZE: "4"
+
+setup: |
+  cd ~/sky_workdir
+  bash canvit_specialize/training/gcp_in1k_clf_ft/setup_tpu.sh
+
+run: |
+  export PATH="$HOME/.local/bin:$PATH"
+  cd ~/sky_workdir
+  RUN_START_NS=$(date +%s%N)
+  ts() { local now=$(date +%s%N); echo "$(( (now - RUN_START_NS) / 1000000 ))ms | $*"; }
+
+  ts "run: section started"
+
+  # Auto-detect region → mount co-located GCS bucket (lamarck-<region> convention).
+  ZONE=$(curl -sf -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/zone | rev | cut -d/ -f1 | rev)
+  REGION=${ZONE%-*}
+  GCS_BUCKET="lamarck-${REGION}"
+  ts "region detected: ${ZONE} → gs://${GCS_BUCKET}"
+
+  # Verify bucket + ImageNet data are accessible.
+  gcloud storage ls "gs://${GCS_BUCKET}/datasets/imagenet/" > /dev/null 2>&1 || {
+    echo "ERROR: gs://${GCS_BUCKET}/datasets/imagenet/ not found!"
+    exit 1
+  }
+  ts "bucket verified"
+
+  # Mount co-located bucket for data (fast, same-region).
+  mkdir -p ~/gcs
+  gcsfuse --implicit-dirs "${GCS_BUCKET}" ~/gcs
+  ts "gcsfuse data mounted"
+
+  # Checkpoints: /ckpt is MOUNT_CACHED via file_mounts (local disk → async GCS sync).
+  # Ckpt dir uses SKYPILOT_TASK_ID (unique per job, stable across spot recoveries).
+  # For dev clusters (sky exec), SKYPILOT_TASK_ID may change per exec — set RUN_NAME
+  # or pass --checkpoint-dir explicitly if you need cross-exec resume.
+  ts "checkpoint mount at /ckpt (MOUNT_CACHED)"
+  ls /ckpt/ > /dev/null 2>&1 && ts "/ckpt accessible" || ts "/ckpt NOT accessible"
+
+  ts "uv run starting..."
+  uv run --group gcp-in1k-finetune python -u -m canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet \
+    --data-dir ~/gcs/datasets/imagenet \
+    --batch-size $BATCH_SIZE \
+    --epochs $EPOCHS \
+    --num-workers $NUM_WORKERS \
+    --lr $LR \
+    --weight-decay $WEIGHT_DECAY \
+    --grad-clip $GRAD_CLIP \
+    --warmup-steps $WARMUP_STEPS \
+    --label-smoothing $LABEL_SMOOTHING \
+    --n-glimpses $N_GLIMPSES \
+    --chunk-size $CHUNK_SIZE \
+    --min-viewpoint-scale $MIN_VP_SCALE \
+    ${EVAL_C2F:+--eval-c2f} \
+    ${INIT_FROM:+--init-from "$INIT_FROM"} \
+    ${EVAL_N_GLIMPSES:+--eval-n-glimpses "$EVAL_N_GLIMPSES"} \
+    ${EARLY_STOP_DELTA:+--early-stop-delta "$EARLY_STOP_DELTA"} \
+    --log-every 100 \
+    --checkpoint-dir /ckpt/checkpoints/${SKYPILOT_TASK_ID:-${RUN_NAME:-manual}} \
+    --run-name "${RUN_NAME:-v6e4_lr${LR}_$(date +%m%d_%H%M)}"

@@ -88,6 +88,13 @@ uv run python -m canvit_specialize.training.ade20k train-dinov3-probe \
   --scene-size 512 --teacher-repo facebook/dinov3-vitb16-pretrain-lvd1689m
 ```
 
+### IN1K classification finetuning on GCP TPU v6e
+
+Training code + SkyPilot launcher live in `canvit_specialize/training/gcp_in1k_clf_ft/`.
+Deps: `uv sync --group gcp-in1k-finetune` (TPU-VM only — pulls `torch_xla[tpu]` + `tfrecord`).
+End-to-end workflow (train → verify → `scripts/push_finetuned.py` to HF) is documented
+in [`canvit_specialize/training/gcp_in1k_clf_ft/README.md`](canvit_specialize/training/gcp_in1k_clf_ft/README.md).
+
 ### Smoke testing (validate env / import / dataset extraction without burning a long job)
 
 There is no separate smoke sbatch. Smoke tests are short parameterizations of
