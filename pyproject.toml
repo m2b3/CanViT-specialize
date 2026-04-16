@@ -66,11 +66,22 @@ typeCheckingMode = "standard"
 [tool.ruff]
 line-length = 120
 
+[[tool.uv.index]]
+name = "pytorch-cpu"
+url = "https://download.pytorch.org/whl/cpu"
+explicit = true
+
 [tool.uv.sources]
 canvit-pytorch = { git = "https://github.com/m2b3/CanViT-PyTorch.git" }
 dinov3 = { git = "https://github.com/yberreby/dinov3.git" }
-# NOTE: No torch/torchvision index override here. The TPU finetuning path runs
-# on TPU VMs where CUDA wheels are dead weight and were implicated in a 2×
-# throughput regression. Nibi/crockett CUDA workflows that need a specific
-# cu12x wheel should set `UV_INDEX_URL=https://download.pytorch.org/whl/cuXXX`
-# at install time, not pin it in pyproject.
+# For the TPU finetune group, pull torch/torchvision from whl/cpu so the 4.3 GB
+# of nvidia_* satellites (cublas, cudnn, nccl, nvjitlink, etc.) never land on
+# a GPU-less TPU VM. Other groups + base install fall through to PyPI default,
+# which for Linux x86_64 torch==2.9.0 IS the CUDA-12.8 build — correct for
+# Nibi/crockett CUDA hosts.
+torch = [
+    { index = "pytorch-cpu", group = "gcp-in1k-finetune", marker = "sys_platform == 'linux'" },
+]
+torchvision = [
+    { index = "pytorch-cpu", group = "gcp-in1k-finetune", marker = "sys_platform == 'linux'" },
+]

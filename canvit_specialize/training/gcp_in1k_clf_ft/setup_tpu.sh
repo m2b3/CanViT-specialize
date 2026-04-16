@@ -83,25 +83,11 @@ fi
 
 # 5) Resolve training deps (pulls torch_xla[tpu] + tfrecord via the group).
 # The `gcp-in1k-finetune` group pins torch==2.9.0 and torchvision==0.24.0 to
-# match torch_xla==2.9.0's _XLAC.so ABI.
+# match torch_xla==2.9.0's _XLAC.so ABI. `[tool.uv.sources]` in pyproject
+# routes torch/torchvision to `https://download.pytorch.org/whl/cpu` for this
+# group on Linux, so no nvidia_* CUDA satellites are downloaded on a TPU VM.
 ts "uv sync --group gcp-in1k-finetune..."
 uv sync --group gcp-in1k-finetune
 ts "uv sync: done"
-
-# 6) Swap torch/torchvision to CPU-only wheels from pytorch.org/whl/cpu.
-# PyPI's torch==2.9.0 for Linux is the CUDA-12.8 build (4.3 GB of NVIDIA
-# satellite packages: cublas, cudnn, nccl, nvjitlink, etc., plus
-# libtorch_cuda.so (1 GB)). On a TPU VM every byte of that is dead weight,
-# and the CUDA dispatch paths can affect import / init behavior. The +cpu
-# wheel is the genuinely CPU-only build and excludes all nvidia_* satellites.
-ts "swapping torch → +cpu wheel (drops nvidia_* satellites)..."
-uv pip install --force-reinstall --no-deps \
-    --index-url https://download.pytorch.org/whl/cpu \
-    torch==2.9.0+cpu torchvision==0.24.0+cpu
-ts "cpu-torch installed; verifying no nvidia_* remain..."
-uv pip list 2>/dev/null | grep -iE '^nvidia|^cudnn|^cublas' && \
-    echo "WARNING: nvidia satellites still present — uninstalling" && \
-    uv pip uninstall $(uv pip list 2>/dev/null | awk '/^nvidia_|^cudnn|^cublas/{print $1}') || true
-ts "torch swap done: $(uv pip show torch 2>/dev/null | grep -E '^Version|^Location' | tr '\n' ' ')"
 
 ts "Setup complete: uv $(uv --version), Python $(uv run --python 3.12 -- python --version 2>&1 | tail -1), gcsfuse $(gcsfuse --version 2>/dev/null | head -1 || echo 'N/A')"
