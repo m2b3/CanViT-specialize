@@ -1,8 +1,4 @@
-"""Shared constants, data loading, and model utilities for CanViT on TPU.
-
-Single source of truth for: model checkpoint, image sizes, data transforms,
-TFRecord loading, CanViT classifier, DataLoader construction, and XLA-native grid_sample.
-"""
+"""Shared constants, TFRecord dataloaders, and classifier loader for TPU training."""
 
 import io
 import logging
@@ -51,9 +47,6 @@ VAL_TRANSFORM = T.Compose([
     T.ToDtype(torch.float32, scale=True),
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
 ])
-
-# Default (backward compat for bench scripts)
-TRANSFORM = VAL_TRANSFORM
 
 
 # ── Data loading ─────────────────────────────────────────────────
@@ -125,49 +118,6 @@ def make_dataloader(
         num_workers=num_workers,
         drop_last=True,
         collate_fn=collate_imagenet,
-        prefetch_factor=2 if num_workers > 0 else None,
-    )
-
-
-def make_glimpse_dataloader(
-    data_dir: str,
-    batch_size: int,
-    num_workers: int,
-    split: str = "train",
-    glimpse_size: int = GLIMPSE_SIZE,
-    viewpoint_fn=None,
-) -> torch.utils.data.DataLoader:
-    """DataLoader that applies grid_sample on CPU, yielding [B, 3, G, G] glimpses.
-
-    Moves grid_sample from the training step (XLA device, causes CPU fallback + graph
-    split + 374ms D2H) into the DataLoader workers (CPU, fast, parallel). The training
-    step receives pre-sampled glimpses and a single unbroken XLA graph.
-
-    H2D transfer per step: 50 MB (128x128) instead of 805 MB (512x512) — 16x less.
-    """
-    from canvit_pytorch import Viewpoint, sample_at_viewpoint
-
-    if viewpoint_fn is None:
-        viewpoint_fn = lambda b: Viewpoint.full_scene(batch_size=b, device="cpu")
-
-    transform = TRAIN_TRANSFORM if split == "train" else VAL_TRANSFORM
-    shards = find_shards(data_dir, split=split)
-    dataset = ShardedTFRecordDataset(shards, transform=transform)
-
-    def collate_with_glimpse(batch):
-        images = torch.stack([x[0] for x in batch])
-        labels = torch.tensor([x[1] for x in batch], dtype=torch.long)
-        b = images.shape[0]
-        vp = viewpoint_fn(b)
-        glimpses = sample_at_viewpoint(spatial=images, viewpoint=vp, glimpse_size_px=glimpse_size)
-        return glimpses, labels, vp
-
-    return torch.utils.data.DataLoader(
-        dataset,
-        batch_size=batch_size,
-        num_workers=num_workers,
-        drop_last=True,
-        collate_fn=collate_with_glimpse,
         prefetch_factor=2 if num_workers > 0 else None,
     )
 
@@ -264,12 +214,8 @@ def make_multi_glimpse_dataloader(
 
 
 # ── Model ────────────────────────────────────────────────────────
-# Uses CanViTForImageClassification from canvit-pytorch (v0.1.7+).
-# Backward compat alias for bench/diagnostic scripts that import CanViTClassifier.
 
 from canvit_pytorch import CanViTForImageClassification
-
-CanViTClassifier = CanViTForImageClassification  # alias for existing scripts
 
 PROBE_REPO = "yberreby/dinov3-vitb16-lvd1689m-in1k-512x512-linear-clf-probe"
 
