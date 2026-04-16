@@ -223,10 +223,13 @@ def _train_step(
 
         if is_chunk_end or is_last:
             (chunk_loss / N).backward()
-            # Dispatch this chunk's graph to XLA. Without this, XLA traces
-            # the entire N-step loop as one graph and OOMs for large N.
-            torch_xla.sync()
             if not is_last:
+                # Truncated BPTT (chunk_size < N): dispatch this intermediate
+                # chunk's graph early so memory = O(chunk_size), not O(N).
+                # For full BPTT (chunk_size == N) the condition is False here
+                # and the end-of-step torch_xla.sync() dispatches the whole
+                # fwd+bwd+optimizer graph as one — matches the flagship run.
+                torch_xla.sync()
                 state.canvas = state.canvas.detach()
                 state.recurrent_cls = state.recurrent_cls.detach()
                 chunk_loss = torch.zeros((), device=device)
