@@ -100,7 +100,7 @@ def _fwd_only(*, clf, batch_size, device, mesh) -> None:
         _logits, state = clf(glimpse=glimpses[g], state=state, viewpoint=vp)
 
 
-def _fwd_bwd(*, clf, optimizer, batch_size, device, mesh) -> None:
+def _fwd_bwd(*, clf, optimizer, batch_size, device, mesh, sync: bool) -> None:
     glimpses, labels, vp_centers, vp_scales = _make_dummy_batch(
         B=batch_size, N=4, device=device, mesh=mesh)
     state = clf.init_state(batch_size=batch_size, canvas_grid_size=CANVAS_GRID)
@@ -109,9 +109,13 @@ def _fwd_bwd(*, clf, optimizer, batch_size, device, mesh) -> None:
     if mesh is not None:
         xs.mark_sharding(state.canvas, mesh, ('data', None, None))
         xs.mark_sharding(state.recurrent_cls, mesh, ('data', None, None))
-    # Full BPTT: no mid-step sync — matches the flagship training step. XLA
-    # fuses forward + per-glimpse losses + backward + optimizer.step into one
-    # traced graph, dispatched by the single end-of-step sync.
+    # Full BPTT: at most a single end-of-step sync — matches the flagship
+    # training step. XLA fuses forward + per-glimpse losses + backward +
+    # optimizer.step into one traced graph per step. With sync=False we skip
+    # even the end-of-step sync to measure whether XLA implicitly dispatches
+    # at step boundary (e.g. via optimizer state mutations) or accumulates IR
+    # across steps — the outer loop's final torch_xla.sync(wait=True) will
+    # force dispatch of everything before the timer stops.
     chunk_loss = torch.zeros((), device=device)
     for g in range(4):
         vp = Viewpoint(centers=vp_centers[g], scales=vp_scales[g])
@@ -120,7 +124,8 @@ def _fwd_bwd(*, clf, optimizer, batch_size, device, mesh) -> None:
     (chunk_loss / 4).backward()
     optimizer.step()
     optimizer.zero_grad()
-    torch_xla.sync()
+    if sync:
+        torch_xla.sync()
 
 
 def bench_compute(args, *, with_backward: bool) -> None:
@@ -129,10 +134,10 @@ def bench_compute(args, *, with_backward: bool) -> None:
     optimizer = torch.optim.AdamW(clf.parameters(), lr=2.5e-5) if with_backward else None
 
     fn = (lambda: _fwd_bwd(clf=clf, optimizer=optimizer, batch_size=args.batch_size,
-                           device=device, mesh=mesh)) if with_backward else \
+                           device=device, mesh=mesh, sync=not args.no_sync)) if with_backward else \
          (lambda: _fwd_only(clf=clf, batch_size=args.batch_size, device=device, mesh=mesh))
 
-    mode = "fwd_bwd" if with_backward else "fwd"
+    mode = ("fwd_bwd_nosync" if args.no_sync else "fwd_bwd") if with_backward else "fwd"
     log.info("%s: warmup %d steps (includes XLA compile)", mode, args.warmup_steps)
     t_warm = time.perf_counter()
     for _ in range(args.warmup_steps):
@@ -164,6 +169,9 @@ def main() -> None:
     p.add_argument("--min-viewpoint-scale", type=float, default=0.05)
     p.add_argument("--warmup-steps", type=int, default=20)
     p.add_argument("--measure-steps", type=int, default=200)
+    p.add_argument("--no-sync", action="store_true",
+                   help="Skip the end-of-step torch_xla.sync() in fwd_bwd mode. "
+                        "Measures whether IR accumulates across steps or XLA dispatches implicitly.")
     args = p.parse_args()
     if args.mode == "dataloader":
         bench_dataloader(args)
