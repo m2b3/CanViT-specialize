@@ -106,6 +106,28 @@ def _log_sharding_spec(tensor: torch.Tensor, name: str) -> None:
 
 _FIRST_INIT_STATE = True
 _FIRST_SHARD_BATCH = True
+_XLA_COMPILE_BASELINE = {"total": 0}
+
+
+def _log_xla_compiles(step: int) -> None:
+    """Emit a warning ONLY when XLA performed a new compile since last call.
+
+    Silent compile-every-step is a classic cause of 2× throughput regressions
+    (dynamic shapes, stray .item(), Python control flow on tensor values).
+    `CompileTime.TotalSamples` is cheap to read (no device sync). Expected
+    steady-state: flat — any delta > 0 means a recompile happened.
+    """
+    import torch_xla.debug.metrics as met
+    data = met.metric_data("CompileTime")
+    if data is None:
+        return
+    total = data[0]
+    delta = total - _XLA_COMPILE_BASELINE["total"]
+    _XLA_COMPILE_BASELINE["total"] = total
+    if delta == 0:
+        return
+    log.warning("xla_recompile step=%d compiles_since_last_log=%d total_compiles=%d",
+                step, delta, total)
 
 
 def _init_state(clf: CanViTForImageClassification, batch_size: int, device, mesh):
@@ -512,6 +534,7 @@ def train(args: argparse.Namespace) -> float:
         # Periodic logging
         if step % args.log_every == 0 and step > start_step:
             torch_xla.sync(wait=True)
+            _log_xla_compiles(step)
             elapsed = time.perf_counter() - window_start
             sc_per_sec = window_samples / elapsed
             metrics = {
