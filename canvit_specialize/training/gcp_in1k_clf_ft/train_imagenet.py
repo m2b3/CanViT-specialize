@@ -41,11 +41,6 @@ COMET_WORKSPACE = "m2b3-ava"
 
 log.info("imports done [%.1fs]", time.perf_counter() - _PYTHON_START)
 
-# MXU matmul precision: pin to 1-pass bf16-internal. This matches the current
-# torch_xla default, but pinning guards against future default flips; "high" /
-# "highest" do 3× / 6× the MXU work. Must be set before any XLA compile.
-xla_backends.set_mat_mul_precision("default")
-
 
 # ── Startup diagnostics ───────────────────────────────────────────────────
 

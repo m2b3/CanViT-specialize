@@ -24,15 +24,12 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 import torch_xla
-import torch_xla.backends as xla_backends
 import torch_xla.distributed.spmd as xs
 import torch_xla.runtime as xr
 from canvit_pytorch import Viewpoint
 from torch_xla.distributed.spmd import Mesh
 
 from .shared import CANVAS_GRID, make_multi_glimpse_dataloader, load_classifier
-
-xla_backends.set_mat_mul_precision("default")
 
 
 def bench_dataloader(args) -> None:
