@@ -96,23 +96,9 @@ run: |
   GCS_BUCKET="lamarck-${REGION}"
   ts "region detected: ${ZONE} → gs://${GCS_BUCKET}"
 
-  # Verify bucket + ImageNet data are accessible. Retry on first-boot gcloud auth
-  # flakiness (service-account token may not be ready the instant the VM boots).
-  # DO NOT silence stderr — a real permission/network failure must surface verbatim.
-  BUCKET_OK=0
-  for attempt in 1 2 3; do
-    if gcloud storage ls "gs://${GCS_BUCKET}/datasets/imagenet/" > /dev/null 2>/tmp/gs_err; then
-      BUCKET_OK=1
-      break
-    fi
-    ts "bucket check attempt ${attempt}/3 failed; stderr:"
-    cat /tmp/gs_err
-    [ "$attempt" -lt 3 ] && sleep 10
-  done
-  if [ "$BUCKET_OK" -ne 1 ]; then
-    echo "FATAL: gs://${GCS_BUCKET}/datasets/imagenet/ not accessible after 3 attempts" >&2
-    exit 1
-  fi
+  # Verify bucket + ImageNet data are accessible. Any failure must surface the
+  # real gcloud stderr — no redirection, no silencing, no retry.
+  gcloud storage ls "gs://${GCS_BUCKET}/datasets/imagenet/" > /dev/null
   ts "bucket verified"
 
   # Mount co-located bucket for data (fast, same-region).
@@ -125,7 +111,7 @@ run: |
   # For dev clusters (sky exec), SKYPILOT_TASK_ID may change per exec — set RUN_NAME
   # or pass --checkpoint-dir explicitly if you need cross-exec resume.
   ts "checkpoint mount at /ckpt (MOUNT_CACHED)"
-  ls /ckpt/ > /dev/null 2>&1 && ts "/ckpt accessible" || ts "/ckpt NOT accessible"
+  ls /ckpt/    # real error if not mounted; we want to see it
 
   ts "uv run starting..."
   uv run --group gcp-in1k-finetune python -u -m canvit_specialize.training.gcp_in1k_clf_ft.train_imagenet \

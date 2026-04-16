@@ -20,7 +20,7 @@ ts() { echo "$(($(date +%s%3N) - SETUP_START))ms | $*"; }
 ts "uv: checking..."
 if ! command -v uv &>/dev/null && [ ! -f "$HOME/.local/bin/uv" ]; then
     ts "uv: installing..."
-    curl -LsSf https://astral.sh/uv/install.sh | sh 2>/dev/null
+    curl -LsSf https://astral.sh/uv/install.sh | sh
     ts "uv: installed"
 else
     ts "uv: already installed"
@@ -28,7 +28,7 @@ fi
 export PATH="$HOME/.local/bin:$PATH"
 
 ts "python: installing 3.12..."
-uv python install 3.12 2>/dev/null || true
+uv python install 3.12
 ts "python: done"
 
 # 2) ldconfig for torch_xla ─────────────────────────────────────────────
@@ -49,7 +49,7 @@ if ! command -v gcsfuse &>/dev/null; then
     ts "gcsfuse: installing (apt-get update is slow)..."
     GCSFUSE_REPO="gcsfuse-$(lsb_release -c -s)"
     echo "deb [signed-by=/usr/share/keyrings/cloud.google.asc] https://packages.cloud.google.com/apt $GCSFUSE_REPO main" | sudo tee /etc/apt/sources.list.d/gcsfuse.list >/dev/null
-    curl -s https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo tee /usr/share/keyrings/cloud.google.asc >/dev/null
+    curl -sSf https://packages.cloud.google.com/apt/doc/apt-key.gpg | sudo tee /usr/share/keyrings/cloud.google.asc >/dev/null
     sudo apt-get update -qq && sudo apt-get install -y -qq gcsfuse
     ts "gcsfuse: installed"
 else
@@ -60,22 +60,25 @@ fi
 #    tar czf /tmp/uv-cache.tar.gz -C ~/.cache uv && \
 #    gcloud storage cp /tmp/uv-cache.tar.gz gs://lamarck-us-central1/cache/
 # ) ─────────────────────────────────────────────────────────────────────
-ZONE=$(curl -sf -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/zone 2>/dev/null | rev | cut -d/ -f1 | rev || echo "")
+ZONE=$(curl -sSf -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/zone | rev | cut -d/ -f1 | rev || echo "")
 REGION=${ZONE%-*}
 GCS_BUCKET="${LAMARCK_GCS_BUCKET:-gs://lamarck-${REGION}}"
 UV_CACHE_ARCHIVE="${GCS_BUCKET}/cache/uv-cache.tar.gz"
-if [ -n "$REGION" ] && [ ! -d "$HOME/.cache/uv/wheels-v4" ] && gcloud storage ls "$UV_CACHE_ARCHIVE" &>/dev/null; then
+# Cache restoration is best-effort: a missing archive is expected on first run.
+# We check existence separately from the download so a real auth/network failure
+# during download doesn't get swallowed.
+if [ -n "$REGION" ] && [ ! -d "$HOME/.cache/uv/wheels-v4" ] && gcloud storage ls "$UV_CACHE_ARCHIVE"; then
     ts "uv-cache: downloading from GCS..."
-    gcloud storage cp "$UV_CACHE_ARCHIVE" /tmp/uv-cache.tar.gz 2>/dev/null
+    gcloud storage cp "$UV_CACHE_ARCHIVE" /tmp/uv-cache.tar.gz
     CACHE_SIZE_MB=$(du -m /tmp/uv-cache.tar.gz | cut -f1)
     ts "uv-cache: downloaded (${CACHE_SIZE_MB}MB compressed)"
     mkdir -p ~/.cache
-    tar xzf /tmp/uv-cache.tar.gz -C ~/.cache/ 2>/dev/null
+    tar xzf /tmp/uv-cache.tar.gz -C ~/.cache/
     rm -f /tmp/uv-cache.tar.gz
-    CACHE_DIR_SIZE=$(du -sh ~/.cache/uv 2>/dev/null | cut -f1)
+    CACHE_DIR_SIZE=$(du -sh ~/.cache/uv | cut -f1)
     ts "uv-cache: restored (${CACHE_DIR_SIZE} on disk)"
 else
-    ts "uv-cache: skipped (already present or no archive)"
+    ts "uv-cache: skipped (already present or no archive accessible)"
 fi
 
 # 5) Resolve training deps (pulls torch_xla[tpu] + tfrecord via the group). ─
