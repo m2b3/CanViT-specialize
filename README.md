@@ -66,16 +66,13 @@ export COMET_API_KEY=$(cat ~/comet_api_key.txt)
 export ADE20K_ROOT=/path/to/ADEChallengeData2016
 
 uv run python -m canvit_specialize.training.ade20k train \
-  --scene-size 1024 --canvas-grid 64 \
-  --batch-size 16 --max-steps 40000 \
-  --warmup-steps 1500 --peak-lr 3e-4
+  --scene-size 1024 --canvas-grid 64
 ```
 
 ### DINOv3 baseline probe
 
 ```bash
-uv run python -m canvit_specialize.training.ade20k train-dinov3-probe \
-  --scene-size 512 --teacher-repo facebook/dinov3-vitb16-pretrain-lvd1689m
+uv run python -m canvit_specialize.training.ade20k train-dinov3-probe
 ```
 
 ### IN1K classification finetuning on GCP TPU v6e
