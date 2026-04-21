@@ -52,6 +52,8 @@ For the fused **CanViT + probe** pair (one HF artifact, recommended for downstre
 
 ## Training
 
+Every field of the relevant `Config` dataclass is a `--kebab-case-flag` via `tyro`; append `--help` to any training command below for the full list.
+
 ### Required environment variables
 
 - `COMET_API_KEY` — required; creates `comet_ml.Experiment` (no fallback).
