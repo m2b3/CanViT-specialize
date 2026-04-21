@@ -1,8 +1,4 @@
-"""Segmentation probe utilities for ADE20K evaluation.
-
-The probe class (SegmentationProbe) lives in canvit-specialize package.
-This module provides eval-specific helpers that depend on mIoUAccumulator.
-"""
+"""Segmentation probe utilities for ADE20K evaluation."""
 
 import torch.nn as nn
 from torch import Tensor

@@ -1,4 +1,4 @@
-"""Comet visualization helpers for training. Imported by train_imagenet.py."""
+"""Comet visualization helpers for training."""
 
 import logging
 
