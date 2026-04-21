@@ -71,19 +71,6 @@ uv run python -m canvit_specialize.training.ade20k train \
   --warmup-steps 1500 --peak-lr 3e-4
 ```
 
-### ADE20K full fine-tuning (LP-FT)
-
-Initialize from a converged frozen probe, then unfreeze the CanViT backbone and continue jointly (Kumar et al. ICLR 2022):
-
-```bash
-uv run python -m canvit_specialize.training.ade20k train \
-  --scene-size 1024 --canvas-grid 64 \
-  --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
-  --batch-size 16 --max-steps 40000
-```
-
-LP-FT uses a lower LR, lower weight decay, and finite grad clip vs the fresh-probe path — all defaulted in `canvit_specialize.training.ade20k.config.Config` when `--finetune` is set. Single feature type only (the backbone is shared; multi-probe fine-tuning would double-step it).
-
 ### DINOv3 baseline probe
 
 ```bash
