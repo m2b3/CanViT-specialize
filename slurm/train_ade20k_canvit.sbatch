@@ -8,15 +8,6 @@
 #SBATCH --output=logs/ade20k-canvit-%j.out
 #SBATCH --error=logs/ade20k-canvit-%j.err
 
-# CanViT ADE20K probe training (frozen backbone).
-#
-#   sbatch slurm/train_ade20k_canvit.sbatch \
-#     --scene-size 1024 --canvas-grid 64 --batch-size 16 --max-steps 40000
-#
-# LP-FT (--finetune) is supported by the CLI but no audited example is provided —
-# the hyperparameters used for any full-fine-tuning run must be chosen by the
-# operator based on the checkpoint they're initializing from.
-
 set -eu  # NOT -x: would trace secret exports (HF_TOKEN, etc.) into logs
 source slurm/setup.sh
 mkdir -p logs
