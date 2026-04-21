@@ -8,19 +8,14 @@
 #SBATCH --output=logs/ade20k-canvit-%j.out
 #SBATCH --error=logs/ade20k-canvit-%j.err
 
-# CanViT ADE20K probe training (frozen backbone OR full fine-tuning).
+# CanViT ADE20K probe training (frozen backbone).
 #
-# Frozen-backbone probe training (default):
 #   sbatch slurm/train_ade20k_canvit.sbatch \
 #     --scene-size 1024 --canvas-grid 64 --batch-size 16 --max-steps 40000
 #
-# Full fine-tuning (LP-FT) — start from converged frozen probe.
-# Note: --weight-decay 1e-4 (10x lower than frozen probe default 1e-3) — high WD
-# can destabilize the backbone during FT (per IN1K FT precedent).
-#   sbatch slurm/train_ade20k_canvit.sbatch \
-#     --scene-size 1024 --canvas-grid 64 --batch-size 16 --max-steps 40000 \
-#     --finetune --init-probe-repo canvit/probe-ade20k-40k-s1024-c64-in21k \
-#     --peak-lr 2.5e-5 --grad-clip 1.0 --weight-decay 1e-4
+# LP-FT (--finetune) is supported by the CLI but no audited example is provided —
+# the hyperparameters used for any full-fine-tuning run must be chosen by the
+# operator based on the checkpoint they're initializing from.
 
 set -eu  # NOT -x: would trace secret exports (HF_TOKEN, etc.) into logs
 source slurm/setup.sh
