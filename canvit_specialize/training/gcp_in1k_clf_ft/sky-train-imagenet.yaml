@@ -1,4 +1,4 @@
-# CanViT IN1K finetuning on TPU v6e (SkyPilot managed job).
+# CanViT IN1k finetuning on TPU v6e (SkyPilot managed job).
 # See canvit_specialize/training/gcp_in1k_clf_ft/README.md for launch commands,
 # prereqs, secrets handling, and HP override patterns.
 

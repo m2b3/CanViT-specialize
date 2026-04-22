@@ -20,7 +20,7 @@ uv add "canvit-specialize @ git+https://github.com/m2b3/CanViT-specialize.git"
 The base `uv sync` pulls `torch==2.9.0` from PyPI, which on Linux x86_64 IS
 the CUDA-12.8 build — correct for Nibi H100 and crockett RTX 4090.
 
-- **GCP TPU v6e (IN1K finetune, `--group gcp-in1k-finetune`)**: `pyproject.toml`
+- **GCP TPU v6e (IN1k finetune, `--group gcp-in1k-finetune`)**: `pyproject.toml`
   group-scopes the `pytorch-cpu` index so the TPU group installs
   `torch==2.9.0+cpu` / `torchvision==0.24.0+cpu`. No nvidia_* cu12 satellites,
   no `libtorch_cuda.so`. The `setup_tpu.sh` invokes
@@ -77,7 +77,7 @@ uv run python -m canvit_specialize.training.ade20k train \
 uv run python -m canvit_specialize.training.ade20k train-dinov3-probe
 ```
 
-### IN1K classification finetuning on GCP TPU v6e
+### IN1k classification finetuning on GCP TPU v6e
 
 Training code + SkyPilot launcher live in `canvit_specialize/training/gcp_in1k_clf_ft/`.
 Deps: `uv sync --group gcp-in1k-finetune` (TPU-VM only — pulls `torch_xla[tpu]` + `tfrecord`).

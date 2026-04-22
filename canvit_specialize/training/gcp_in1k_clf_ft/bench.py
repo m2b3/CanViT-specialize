@@ -1,4 +1,4 @@
-"""Throughput decomposition benchmarks for IN1K finetuning pipeline.
+"""Throughput decomposition benchmarks for IN1k finetuning pipeline.
 
 Three modes, each measures ONE axis in isolation. All import production code
 (canvit_specialize.training.gcp_in1k_clf_ft.shared + canvit_pytorch) — never

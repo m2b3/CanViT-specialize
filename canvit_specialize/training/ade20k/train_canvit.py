@@ -195,7 +195,7 @@ def train(cfg: Config) -> None:
         log.warning(
             f"finetune mode with weight_decay={cfg.weight_decay} — this is the frozen-probe "
             f"default and is typically too aggressive for full FT (can destabilize backbone "
-            f"weights, per IN1K FT precedent which used 1e-4). Consider --weight-decay 1e-4."
+            f"weights, per IN1k FT precedent which used 1e-4). Consider --weight-decay 1e-4."
         )
 
     # Model

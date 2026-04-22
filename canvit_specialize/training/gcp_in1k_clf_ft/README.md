@@ -1,6 +1,6 @@
-# CanViT IN1K classification finetuning (GCP TPU v6e)
+# CanViT IN1k classification finetuning (GCP TPU v6e)
 
-Training code for the flagship IN1K-finetuned checkpoint. See the paper for the headline number.
+Training code for the flagship IN1k-finetuned checkpoint. See the paper for the headline number.
 
 - **Checkpoint:** [canvit/canvitb16-add-vpe-finetune-g128px-s512px-in1k-2026-04-06](https://huggingface.co/canvit/canvitb16-add-vpe-finetune-g128px-s512px-in1k-2026-04-06)
 - **Hardware:** TPU v6e-4 via `torch_xla` SPMD. Does NOT run on CPU or CUDA.
