@@ -6,8 +6,6 @@ requires-python = ">=3.12"
 dependencies = [
     "canvit-pytorch",
     "dinov3",
-    "torch>=2.0.0",
-    "torchvision>=0.15.0",
     "pillow>=10.0.0",
     "huggingface-hub>=0.20.0",
     "safetensors>=0.4.0",
@@ -32,6 +30,12 @@ allow-direct-references = true
 [tool.hatch.build.targets.wheel]
 packages = ["canvit_specialize"]
 
+# Torch is installed via the `cuda` / `gcp-in1k-finetune` groups, NOT as a base
+# dependency. Listing `torch>=2.0.0` in base made the universal lockfile
+# collapse to ONE torch version per Linux marker, which let the TPU group's
+# `+cpu` pin leak into every Linux install (`uv sync` on Nibi/crockett would
+# install CPU torch, crash at `torch.cuda.is_available()`, 2026-04-21). Groups
+# + `conflicts` keep the two resolutions distinct.
 [dependency-groups]
 dev = [
     "basedpyright>=1.37.2",
@@ -41,19 +45,25 @@ dev = [
     "ruff>=0.14.14",
 ]
 
-# Extra dependencies for canvit_specialize/training/gcp_in1k_clf_ft/ (IN1K finetuning
-# on GCP TPU v6e). Not required for ADE20K probe training or DINOv3 IN1K probe training.
-# Install only on the TPU VM that runs the finetuning job:
-#     uv sync --group gcp-in1k-finetune
+# GPU/CUDA path — installed by default via `default-groups = ["cuda"]`.
+# PyPI Linux torch 2.9.0 IS the CUDA-12.8 build (verified bit-identical to the
+# `whl/cu128` index variant, 2026-04 memory `reference_torch_cu128_is_cosmetic`).
+cuda = [
+    "torch==2.9.0",
+    "torchvision==0.24.0",
+]
+
+# TPU/CPU-only path for canvit_specialize/training/gcp_in1k_clf_ft/.
+# Install on the TPU VM with:
+#     uv sync --group gcp-in1k-finetune --no-group cuda
+# (Groups listed in `conflicts` below cannot be installed together.)
+#
+# Linux +cpu pin rationale: the whl/cpu index publishes multiple variants per
+# release (torchvision==0.24.0+cpu AND 0.24.0+e437e35) with DIFFERENT platform
+# coverage; without a local-version pin, uv picks 0.24.0+e437e35 for
+# linux_x86_64 cpython3.12 and fails install because that variant has no wheel
+# for that platform (FAILED_SETUP on Jobs 59/60 2026-04-16).
 gcp-in1k-finetune = [
-    # On Linux: pin exact +cpu local-version identifiers. The whl/cpu index
-    # publishes multiple variants per release (torchvision==0.24.0+cpu AND
-    # 0.24.0+e437e35) with DIFFERENT platform coverage; without a local-version
-    # pin, uv picks 0.24.0+e437e35 for linux_x86_64 cpython3.12 and fails
-    # install because that variant has no wheel for that platform (FAILED_SETUP
-    # on Jobs 59/60 2026-04-16).
-    # On macOS: the +cpu local-version doesn't exist on PyPI, so fall back to
-    # the plain pin (already CPU-only on Darwin).
     "torch==2.9.0+cpu; sys_platform == 'linux'",
     "torch==2.9.0; sys_platform != 'linux'",
     "torchvision==0.24.0+cpu; sys_platform == 'linux'",
@@ -72,6 +82,20 @@ typeCheckingMode = "standard"
 [tool.ruff]
 line-length = 120
 
+[tool.uv]
+# `uv sync` (no --group flag) installs base + default-groups. Putting `cuda`
+# here means "the CUDA torch + torchvision arrive by default" without anyone
+# remembering to pass `--group cuda`. On TPU, pass `--no-group cuda --group
+# gcp-in1k-finetune` to swap.
+default-groups = ["dev", "cuda"]
+# Declare the two torch providers as mutually incompatible so uv emits SEPARATE
+# lockfile resolutions for each. Without this, uv tries to reconcile both into
+# one resolution per platform marker and the `+cpu` pin wins on Linux (the bug
+# we're fixing).
+conflicts = [
+    [{ group = "cuda" }, { group = "gcp-in1k-finetune" }],
+]
+
 [[tool.uv.index]]
 name = "pytorch-cpu"
 url = "https://download.pytorch.org/whl/cpu"
@@ -82,9 +106,7 @@ canvit-pytorch = { git = "https://github.com/m2b3/CanViT-PyTorch.git" }
 dinov3 = { git = "https://github.com/yberreby/dinov3.git" }
 # For the TPU finetune group, pull torch/torchvision from whl/cpu so the 4.3 GB
 # of nvidia_* satellites (cublas, cudnn, nccl, nvjitlink, etc.) never land on
-# a GPU-less TPU VM. Other groups + base install fall through to PyPI default,
-# which for Linux x86_64 torch==2.9.0 IS the CUDA-12.8 build — correct for
-# Nibi/crockett CUDA hosts.
+# a GPU-less TPU VM.
 torch = [
     { index = "pytorch-cpu", group = "gcp-in1k-finetune", marker = "sys_platform == 'linux'" },
 ]
