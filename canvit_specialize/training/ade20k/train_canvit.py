@@ -347,11 +347,8 @@ def train(cfg: Config) -> None:
                 exp.log_curve(f"{feat_type}/val_miou_curve", x=list(range(cfg.n_timesteps)), y=mious, step=step)
 
                 if improved and run_dir:
-                    # Skip backbone snapshot at step 0: it's identical to the
-                    # HF init at cfg.model_repo (LP-FT loads it via
-                    # CanViTForPretrainingHFHub.from_pretrained); saving it
-                    # would waste ~375 MB per run. The probe head IS still
-                    # saved (small) as a record of the LP-FT init point.
+                    # Skip backbone snapshot at step 0: identical to the HF init
+                    # at cfg.model_repo. Probe head still saved.
                     save_backbone = cfg.finetune and step > 0
                     _save_probe_checkpoint(
                         run_dir, feat_type, probes[feat_type], step, cfg,
@@ -460,9 +457,8 @@ def train(cfg: Config) -> None:
 
     pbar.close()
 
-    # Final save only for frozen-probe training. In finetune mode the
-    # "best" checkpoint at the most recent improvement step is what we'd
-    # publish — a duplicate "final" snapshot would be ~375 MB of waste.
+    # Final save only for frozen-probe training. In finetune mode the "best"
+    # checkpoint at the most recent improvement step is what we'd publish.
     if run_dir and not cfg.finetune:
         for feat_type, probe in probes.items():
             _save_probe_checkpoint(
