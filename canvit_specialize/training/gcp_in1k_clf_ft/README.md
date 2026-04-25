@@ -70,7 +70,7 @@ sky down tpu-dev     # terminate
 uv run python scripts/push_finetuned.py \
   --checkpoint /path/to/best.pt \
   --pretrained-repo canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02 \
-  --probe-repo yberreby/dinov3-vitb16-lvd1689m-in1k-512x512-linear-clf-probe \
+  --probe-repo canvit/dinov3-vitb16-lvd1689m-in1k-512x512-linear-clf-probe \
   --canvas-grid 32 \
   --repo-id canvit/<new-name> --public
 ```
