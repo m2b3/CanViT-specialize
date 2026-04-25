@@ -58,11 +58,11 @@ fi
 
 # 4) Restore uv cache from GCS (read-only; manually update via:
 #    tar czf /tmp/uv-cache.tar.gz -C ~/.cache uv && \
-#    gcloud storage cp /tmp/uv-cache.tar.gz gs://lamarck-us-central1/cache/
+#    gcloud storage cp /tmp/uv-cache.tar.gz "gs://${GCS_BUCKET_PREFIX}-us-central1/cache/"
 # ) ─────────────────────────────────────────────────────────────────────
 ZONE=$(curl -sSf -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/zone | rev | cut -d/ -f1 | rev || echo "")
 REGION=${ZONE%-*}
-GCS_BUCKET="${LAMARCK_GCS_BUCKET:-gs://lamarck-${REGION}}"
+GCS_BUCKET="gs://${GCS_BUCKET_PREFIX:?GCS_BUCKET_PREFIX not set — your per-region GCS bucket prefix, e.g. mylab}-${REGION}"
 UV_CACHE_ARCHIVE="${GCS_BUCKET}/cache/uv-cache.tar.gz"
 # Cache restoration is best-effort: a missing archive is expected on first run.
 # We check existence separately from the download so a real auth/network failure

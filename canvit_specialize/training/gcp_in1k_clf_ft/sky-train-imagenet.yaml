@@ -40,9 +40,10 @@ workdir: .
 # Checkpoints: MOUNT_CACHED writes to local disk, syncs to GCS async (rclone,
 # not gcsfuse) — avoids gcsfuse auth-expiry crashes. Bucket pinned to
 # us-central1 so checkpoints survive EAGER_NEXT_REGION failover.
+# EDIT the source below to point at your own us-central1 GCS bucket.
 file_mounts:
   /ckpt:
-    source: gs://lamarck-us-central1
+    source: gs://YOUR-BUCKET-PREFIX-us-central1
     mode: MOUNT_CACHED
     type: MODEL_CHECKPOINT_RW
 
@@ -51,6 +52,10 @@ secrets:
   HF_TOKEN:
 
 envs:
+  # GCS bucket prefix (`${GCS_BUCKET_PREFIX}-${REGION}` is the per-region data
+  # bucket; ${GCS_BUCKET_PREFIX}-us-central1 is the checkpoint bucket above).
+  # Required — pass via `--env GCS_BUCKET_PREFIX=your-prefix`.
+  GCS_BUCKET_PREFIX: ""
   NUM_WORKERS: "32"
   GRAD_CLIP: "1.0"
   LABEL_SMOOTHING: "0.1"
@@ -88,10 +93,10 @@ run: |
 
   ts "run: section started"
 
-  # Auto-detect region → mount co-located GCS bucket (lamarck-<region> convention).
+  # Auto-detect region → mount co-located GCS bucket (${GCS_BUCKET_PREFIX}-<region>).
   ZONE=$(curl -sf -H "Metadata-Flavor: Google" http://metadata.google.internal/computeMetadata/v1/instance/zone | rev | cut -d/ -f1 | rev)
   REGION=${ZONE%-*}
-  GCS_BUCKET="lamarck-${REGION}"
+  GCS_BUCKET="${GCS_BUCKET_PREFIX:?GCS_BUCKET_PREFIX not set — pass --env GCS_BUCKET_PREFIX=your-prefix}-${REGION}"
   ts "region detected: ${ZONE} → gs://${GCS_BUCKET}"
 
   # Verify bucket + ImageNet data are accessible. Any failure must surface the

@@ -30,7 +30,11 @@ All version pins live in `pyproject.toml`. The `torch==2.9.0` pin is load-bearin
 3. `~/.sky/config.yaml` with `gcp.remote_identity: SERVICE_ACCOUNT`. Worker VMs then authenticate via the attached GCE service account — no SA key, no expiry. (SkyPilot rejects this as a per-task field, so it MUST be at user-level.)
 4. Comet API key at `~/.config/comet_api_key.txt` (600). Optional at training time; required for `push_finetuned.py` → Comet HP augmentation.
 5. HuggingFace token at `~/.cache/huggingface/token` (`huggingface-cli login`). Needs write scope for push.
-6. GCS: `gs://lamarck-<region>/datasets/imagenet/` (TFRecord shards) per region you want to train in; `gs://lamarck-us-central1/` for checkpoints. `LAMARCK_GCS_BUCKET` overrides the naming convention.
+6. GCS buckets following the `${GCS_BUCKET_PREFIX}-${REGION}` convention:
+   - `gs://${GCS_BUCKET_PREFIX}-<region>/datasets/imagenet/` — TFRecord shards, per region you want to train in.
+   - `gs://${GCS_BUCKET_PREFIX}-us-central1/` — checkpoint bucket (pinned to us-central1 to survive EAGER_NEXT_REGION failover). Edit the `file_mounts.source` in `sky-train-imagenet.yaml` to match.
+
+   Pass the prefix at launch with `--env GCS_BUCKET_PREFIX=your-prefix`.
 
 ## Secrets
 
