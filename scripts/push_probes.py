@@ -66,7 +66,6 @@ _MODEL_SHORT: dict[str, str] = {
 }
 
 
-# ---------- Checkpoint loading ----------
 
 def _extract_state_dict_and_metadata(raw: dict) -> tuple[dict, dict]:
     """Supports canvas (new + legacy) and DINOv3 probe checkpoint formats."""
@@ -120,7 +119,6 @@ def load_probe(pt_path: Path) -> tuple[SegmentationProbe, dict]:
     return probe, meta
 
 
-# ---------- Feature-type detection (covers legacy configs without feat_type) ----------
 
 def _resolve_feat_type(meta: dict) -> str:
     """Return 'canvas_hidden' or 'dinov3_spatial'. Falls back on schema sniffing."""
@@ -133,7 +131,6 @@ def _resolve_feat_type(meta: dict) -> str:
     return "canvas_hidden"
 
 
-# ---------- DINOv3 variant parsing ----------
 
 def _dinov3_variant(model_repo: str) -> str:
     """'facebook/dinov3-vitb16-...' -> 'ViT-B/16'."""
@@ -142,7 +139,6 @@ def _dinov3_variant(model_repo: str) -> str:
     return f"ViT-{m.group(1).upper()}/{m.group(2)}"
 
 
-# ---------- Batch-mode repo naming ----------
 
 def derive_repo_id(owner: str, meta: dict) -> str:
     cfg = meta["config"]
@@ -159,7 +155,6 @@ def derive_repo_id(owner: str, meta: dict) -> str:
     return f"{owner}/probe-ade20k-{steps_k}k-s{cfg['scene_size']}-c{cfg['canvas_grid']}-{short}"
 
 
-# ---------- Canonical collection notes ----------
 
 def canvas_probe_note(cfg: dict) -> str:
     return f"CanViT, {cfg['scene_size']}px scene, {cfg['canvas_grid']}×{cfg['canvas_grid']} canvas grid"
@@ -169,7 +164,6 @@ def dinov3_probe_note(cfg: dict) -> str:
     return f"DINOv3 {_dinov3_variant(cfg['model'])}, {cfg['resolution']}px input"
 
 
-# ---------- KaTeX scientific notation ----------
 
 def _sci_katex(x: float) -> str:
     """Inline KaTeX math for a scientific-notation number.
@@ -189,7 +183,6 @@ def _sci_katex(x: float) -> str:
     return rf"\\( {mantissa:g} \times 10^{{{exp}}} \\)"
 
 
-# ---------- HP table builders ----------
 
 def _common_hp_rows(cfg: dict) -> list[tuple[str, str]]:
     scale_lo, scale_hi = cfg["aug_scale_range"]
@@ -230,7 +223,6 @@ def _rows_to_table(rows: list[tuple[str, str]]) -> str:
     return "\n".join(lines)
 
 
-# ---------- Model card template (unified) ----------
 
 _CARD_TEMPLATE = """\
 ---
@@ -331,7 +323,6 @@ def build_dinov3_card(
     )
 
 
-# ---------- Collection reordering ----------
 
 def _reorder_collection(
     slug: str, sort_key: Callable[[dict], tuple], *, dry_run: bool = False,
@@ -371,7 +362,6 @@ def reorder_dinov3_collection(*, dry_run: bool = False) -> None:
     )
 
 
-# ---------- Per-probe publish pipeline ----------
 
 def _build_card_and_note(repo_id: str, embed_dim: int, num_classes: int, use_ln: bool,
                         feat_type: str, cfg: dict) -> tuple[str, str, str]:
@@ -424,7 +414,6 @@ def publish_probe(
     upsert_collection_item(collection, repo_id, note=note)
 
 
-# ---------- Entry points ----------
 
 @dataclass
 class Single:

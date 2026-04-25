@@ -126,7 +126,6 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
             images, masks = next(train_iter)
         images, masks = images.to(device), masks.to(device)
 
-        # === Validation ===
         if step % cfg.val_every == 0:
             val_start = time.perf_counter()
             probe.eval()
@@ -173,7 +172,6 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
             val_time = time.perf_counter() - val_start
             exp.log_metric("timing/val_seconds", val_time, step=step)
 
-        # === Training step ===
         probe.train()
         optimizer.zero_grad()
 
@@ -199,7 +197,6 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
         step += 1
         pbar.update(1)
 
-        # === Logging (GPU sync only here) ===
         if step % cfg.log_every == 0:
             assert loss_acc is not None and grad_acc is not None
             avg_loss = (loss_acc / acc_count).item()

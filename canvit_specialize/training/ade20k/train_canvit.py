@@ -301,7 +301,6 @@ def train(cfg: Config) -> None:
             images, masks = next(train_iter)
         images, masks = images.to(device), masks.to(device)
 
-        # === Validation ===
         if step % cfg.val_every == 0:
             val_start = time.perf_counter()
             if cfg.finetune:
@@ -370,7 +369,6 @@ def train(cfg: Config) -> None:
             log.info(f"Step {step}: validation took {val_time:.1f}s")
             exp.log_metric("timing/val_seconds", val_time, step=step)
 
-        # === Training step ===
         if cfg.finetune:
             model.train()
         for p in probes.values():
@@ -418,7 +416,6 @@ def train(cfg: Config) -> None:
                     preds_up = upsample_preds(preds, masks.shape[1], masks.shape[2])
                     train_iou[feat_type][t].update(preds_up, masks)
 
-        # === Visualization ===
         if step % cfg.viz_every == 0:
             viz_start = time.perf_counter()
             for p in probes.values():
@@ -435,7 +432,6 @@ def train(cfg: Config) -> None:
         step += 1
         pbar.update(1)
 
-        # === Logging ===
         if step % cfg.log_every == 0:
             lr = list(probes.values())[0].scheduler.get_last_lr()[0]
             log_dict: dict[str, float] = {"lr": float(lr)}
