@@ -251,7 +251,7 @@ def train(cfg: Config) -> None:
     train_loader, val_loader = make_ade20k_loaders(cfg)
 
     # Comet
-    exp = comet_ml.Experiment(project_name=cfg.comet_project, workspace=cfg.comet_workspace)
+    exp = comet_ml.Experiment()
     feats_str = "+".join(cfg.features)
     model_slug = cfg.model_repo.split("/")[-1]
     ts = time.strftime("%Y-%m-%d-%H%M%S-%Z")
@@ -265,7 +265,7 @@ def train(cfg: Config) -> None:
         exp.add_tag("finetune")
         if cfg.init_probe_repo:
             exp.add_tag("lp-ft")
-    log.info(f"Comet: {cfg.comet_workspace}/{cfg.comet_project}/{exp.get_key()} ({exp_name})")
+    log.info(f"Comet: {exp.workspace}/{exp.project_name}/{exp.get_key()} ({exp_name})")
 
     job_id = os.environ.get("SLURM_JOB_ID", "local")
     timestamp = time.strftime("%Y%m%d_%H%M%S")

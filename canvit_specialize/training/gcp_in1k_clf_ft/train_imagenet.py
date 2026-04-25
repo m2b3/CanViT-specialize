@@ -36,8 +36,6 @@ from .viz import log_val_samples as _log_val_samples
 
 TRAIN_IMAGES = 1_281_167
 VAL_IMAGES = 50_000
-COMET_PROJECT = "canvit-in1k-finetune"
-COMET_WORKSPACE = "m2b3-ava"
 
 log.info("imports done [%.1fs]", time.perf_counter() - _PYTHON_START)
 
@@ -164,7 +162,7 @@ def _init_comet(*, run_name: str | None, prev_key: str | None):
         return None
     import comet_ml
     cfg = comet_ml.ExperimentConfig(auto_metric_logging=False, name=run_name)
-    kwargs: dict = dict(project_name=COMET_PROJECT, workspace=COMET_WORKSPACE, experiment_config=cfg)
+    kwargs: dict = {"experiment_config": cfg}
     if prev_key is not None:
         kwargs["experiment_key"] = prev_key
         log.info("Continuing Comet experiment: %s", prev_key)

@@ -86,7 +86,7 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
     train_loader, val_loader = make_ade20k_loaders(cfg)
 
     # Comet
-    exp = comet_ml.Experiment(project_name=cfg.comet_project, workspace=cfg.comet_workspace)
+    exp = comet_ml.Experiment()
     model_short = cfg.model.split("/")[-1].replace("-pretrain-lvd1689m", "").replace("-pretrain", "")
     exp_name = f"{model_short}_{cfg.resolution}px_{time.strftime('%Y-%m-%d-%H%M%S-%Z')}"
     exp.set_name(exp_name)
@@ -94,7 +94,7 @@ def train(cfg: DINOv3ProbeTrainConfig) -> None:
     exp.add_tag("dinov3-baseline")
     exp.add_tag(model_short)
     metric_prefix = f"{model_short}_{cfg.resolution}px"
-    log.info(f"Comet: {cfg.comet_workspace}/{cfg.comet_project}/{exp.get_key()} ({exp_name})")
+    log.info(f"Comet: {exp.workspace}/{exp.project_name}/{exp.get_key()} ({exp_name})")
 
     job_id = os.environ.get("SLURM_JOB_ID", "local")
     timestamp = time.strftime("%Y%m%d_%H%M%S")

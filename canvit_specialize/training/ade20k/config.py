@@ -19,8 +19,6 @@ def _default_ade20k_root() -> Path:
     raise ValueError("ADE20K_ROOT env var not set and not running under SLURM")
 
 
-# --- Canvas feature registry ---
-
 CanvasFeatureType = Literal["canvas_hidden", "recon_normalized"]
 
 
@@ -40,8 +38,6 @@ def get_feature_dims(canvas_dim: int, teacher_dim: int) -> dict[CanvasFeatureTyp
     dim_map: dict[str, int] = {"canvas": canvas_dim, "teacher": teacher_dim}
     return {k: dim_map[v.dim_source] for k, v in CANVAS_FEATURES.items()}
 
-
-# --- Shared base config ---
 
 @dataclass
 class ProbeTrainBase:
@@ -73,8 +69,6 @@ class ProbeTrainBase:
     val_every: int = 500
     viz_every: int = 500
     viz_samples: int = 4
-    comet_project: str = "canvit-ade20k-probes"
-    comet_workspace: str = "m2b3-ava"
     device: str = "cuda"
     amp: bool = True
     probe_ckpt_dir: Path | None = field(default_factory=_default_probe_ckpt_dir)
