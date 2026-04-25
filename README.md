@@ -1,6 +1,6 @@
 # CanViT-specialize
 
-Training loops for [CanViT](https://github.com/m2b3/CanViT-PyTorch) downstream probes and finetuning. The probe and finetuning *architectures* live in `canvit_pytorch.probes` / `canvit_pytorch.CanViTForImageClassification`; this repo holds the training side (data loaders, IoU metrics, training loops, HF push scripts).
+Training loops for [CanViT](https://github.com/m2b3/CanViT-PyTorch) downstream probes (ADE20K segmentation) and IN1k finetuning.
 
 ## Install
 
