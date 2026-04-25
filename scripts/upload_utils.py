@@ -23,10 +23,7 @@ def upload_probe_to_hub(
 ) -> str:
     """Upload a probe checkpoint to HuggingFace Hub. Returns the repo URL.
 
-    Refuses to serialize tensors into config.json — the previous
-    `default=str` behavior would silently coerce nested tensors to
-    truncated repr strings, producing a useless config and dropping the
-    actual weights. Caller must pass a JSON-clean config.
+    Caller must pass a JSON-clean config (use json_sanitize first).
     """
     _assert_json_clean(config)
     with tempfile.TemporaryDirectory() as tmpdir:
@@ -66,8 +63,7 @@ def json_sanitize(obj: object) -> object:
 
 
 def _assert_json_clean(obj: object, path: str = "config") -> None:
-    """Refuse non-JSON-native types early. Prevents the `default=str` foot-gun
-    that previously could str-coerce torch.Tensor values into config.json."""
+    """Refuse non-JSON-native types early."""
     if isinstance(obj, dict):
         for k, v in obj.items():
             _assert_json_clean(v, f"{path}.{k}")

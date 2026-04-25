@@ -6,7 +6,7 @@ Trains segmentation probes on frozen CanViT features:
 - Eval: mIoU computed per timestep, logged as curves
 
 Training protocol aligned with DINOv3's linear probing (Appendix D.1).
-Note: We use whole-image inference, not sliding window (intentional simplification).
+Whole-image inference (no sliding window).
 """
 
 import logging
