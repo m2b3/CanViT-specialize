@@ -10,11 +10,12 @@ import numpy as np
 import torch
 import torchvision.transforms.v2 as T
 
+from canvit_pytorch import resolve_repo
 from PIL import Image
 from tfrecord.reader import tfrecord_loader
 
 # ── Model ────────────────────────────────────────────────────────
-CKPT = "canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02"
+CKPT = resolve_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02")
 
 # ── Image sizes ──────────────────────────────────────────────────
 SCENE_SIZE = 512
