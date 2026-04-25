@@ -146,7 +146,7 @@ gcp-in1k-finetune = [
 requires-dist = [
     { name = "canvit-pytorch", git = "https://github.com/m2b3/CanViT-PyTorch.git" },
     { name = "comet-ml", specifier = ">=3.30.0" },
-    { name = "dinov3", git = "https://github.com/yberreby/dinov3.git" },
+    { name = "dinov3", git = "https://github.com/facebookresearch/dinov3.git?rev=54694f7627fd815f62a5dcc82944ffa6153bbb76" },
     { name = "huggingface-hub", specifier = ">=0.20.0" },
     { name = "matplotlib", specifier = ">=3.8.0" },
     { name = "pandas", specifier = ">=2.0.0" },
@@ -543,7 +543,7 @@ wheels = [
 [[package]]
 name = "dinov3"
 version = "0.0.1"
-source = { git = "https://github.com/yberreby/dinov3.git#54694f7627fd815f62a5dcc82944ffa6153bbb76" }
+source = { git = "https://github.com/facebookresearch/dinov3.git?rev=54694f7627fd815f62a5dcc82944ffa6153bbb76#54694f7627fd815f62a5dcc82944ffa6153bbb76" }
 dependencies = [
     { name = "ftfy" },
     { name = "omegaconf" },
