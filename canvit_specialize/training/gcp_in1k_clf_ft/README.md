@@ -85,13 +85,3 @@ Defaults in `sky-train-imagenet.yaml` target v6e-4. On a different slice, scale 
 - **`min_viewpoint_scale=0.05`** — matches pretraining `p(s) ∝ (1-s)` truncation.
 - **Mixed precision OFF (fp32)** — `torch.autocast("xla", bf16)` caused ~1000× gnorm explosion through full BPTT; throughput was identical without it (XLA uses bf16 internally for matmuls).
 
-## Anonymization for NeurIPS code zip
-
-Names to scrub before packaging — see `CanViT-Toward-AVFMs/anonymization_terms.txt` for the canonical substitution list.
-
-## Cross-refs
-
-- `pyproject.toml` — `gcp-in1k-finetune` dep group with all version pins.
-- `sky-train-imagenet.yaml` — resource ordering, regions, env defaults.
-- `scripts/push_finetuned.py` — HF publish flow.
-- Top-level `README.md` — canvit-specialize install + ADE20K probe training.
