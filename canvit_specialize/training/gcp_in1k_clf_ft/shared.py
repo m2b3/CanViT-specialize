@@ -10,12 +10,13 @@ import numpy as np
 import torch
 import torchvision.transforms.v2 as T
 
-from canvit_pytorch import resolve_repo
+from canvit_pytorch import resolve_canvit_repo
+from dinov3_in1k_probes.repos import probe_repo
 from PIL import Image
 from tfrecord.reader import tfrecord_loader
 
 # ── Model ────────────────────────────────────────────────────────
-CKPT = resolve_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02")
+CKPT = resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02")
 
 # ── Image sizes ──────────────────────────────────────────────────
 SCENE_SIZE = 512
@@ -188,7 +189,7 @@ def make_multi_glimpse_dataloader(
 
 from canvit_pytorch import CanViTForImageClassification
 
-PROBE_REPO = "yberreby/dinov3-vitb16-lvd1689m-in1k-512x512-linear-clf-probe"
+PROBE_REPO = probe_repo("vitb16")
 
 
 def load_classifier(device: torch.device) -> CanViTForImageClassification:

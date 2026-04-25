@@ -63,6 +63,11 @@ gcp-in1k-finetune = [
     "torchvision==0.24.0; sys_platform != 'linux'",
     "torch_xla[tpu]==2.9.0; sys_platform == 'linux'",
     "tfrecord",
+    # dinov3-in1k-probes is needed by gcp_in1k_clf_ft/shared.py but its
+    # base pyproject pins torchvision>=0.24.1, which would conflict with
+    # the load-bearing torchvision==0.24.0+cpu pin tied to torch_xla 2.9.0
+    # compat. Install it on the TPU VM separately:
+    #   uv pip install --no-deps "dinov3-in1k-probes @ git+https://github.com/m2b3/dinov3-in1k-probes.git"
 ]
 
 [tool.pytest.ini_options]

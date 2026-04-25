@@ -38,6 +38,7 @@ import torch
 import tyro
 from huggingface_hub import HfApi, hf_hub_download
 
+from canvit_pytorch import CANVIT_REPO_ROOT, resolve_canvit_repo
 from canvit_pytorch.probes import SegmentationProbe
 from scripts.upload_utils import (
     json_sanitize,
@@ -49,9 +50,9 @@ from scripts.upload_utils import (
 logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
 log = logging.getLogger(__name__)
 
-# HF collection slugs are stable identifiers; safe to hardcode.
-CANVAS_PROBE_COLLECTION = "canvit/canvit-ade20k-segmentation-probes-pytorch-69d550b66add770c509bb77a"
-DINOV3_PROBE_COLLECTION = "canvit/dinov3-ade20k-segmentation-probes-pytorch-69d59b1eb69bbb3422f49b4f"
+# Stable HF collection slugs under the canvit-org root.
+CANVAS_PROBE_COLLECTION = f"{CANVIT_REPO_ROOT}/canvit-ade20k-segmentation-probes-pytorch-69d550b66add770c509bb77a"
+DINOV3_PROBE_COLLECTION = f"{CANVIT_REPO_ROOT}/dinov3-ade20k-segmentation-probes-pytorch-69d59b1eb69bbb3422f49b4f"
 
 # Batch-mode repo naming: short id per base-model repo. Full name lives in config.json.
 # Old + current flagship CanViT-B names resolve to the same weights (same HF rename).
@@ -59,10 +60,10 @@ _MODEL_SHORT: dict[str, str] = {
     "facebook/dinov3-vitb16-pretrain-lvd1689m": "dv3b",
     "facebook/dinov3-vits16-pretrain-lvd1689m": "dv3s",
     # CanViT-B flagship (IN21k). Old + current repo names are aliases for the same weights.
-    "canvit/canvit-vitb16-pretrain-512px-in21k": "in21k",
-    "canvit/canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02": "in21k",
+    resolve_canvit_repo("canvit-vitb16-pretrain-512px-in21k"): "in21k",
+    resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02"): "in21k",
     # CanViT-B continual-pretrained on SA1B (from the IN21k flagship).
-    "canvit/canvitb16-add-vpe-pretrain-g128px-s1024px-sa1b-dv3b16-2026-02-26-from-in21k-2026-02-02": "sa1b",
+    resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s1024px-sa1b-dv3b16-2026-02-26-from-in21k-2026-02-02"): "sa1b",
 }
 
 
@@ -428,7 +429,7 @@ class Single:
 class Batch:
     """Push every probe under `probe_dir`, auto-deriving repo_ids."""
     probe_dir: Path
-    owner: str = "canvit"
+    owner: str = CANVIT_REPO_ROOT
     public: bool = False
     dry_run: bool = False
 
