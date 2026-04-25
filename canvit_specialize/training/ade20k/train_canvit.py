@@ -91,21 +91,15 @@ def _save_probe_checkpoint(
 ) -> Path:
     """Save probe head + (optional) backbone state for finetune mode.
 
-    Disk-usage rules (tonight's session burned 1.9 GB on 6 LP-FT smokes,
-    most of it 375 MB step-0 backbone snapshots that were identical to
-    the HF init):
-    - At step 0, the backbone equals `cfg.model_repo` on HF — caller MUST
-      pass model=None (this function asserts).
-    - "best" saves keep at most one file per feat_type — old bests are
-      unlinked before the new save.
-    - "final" saves are only used in frozen-probe mode. In finetune mode
-      the "best" checkpoint already covers what we want to publish.
+    At step 0, the backbone equals `cfg.model_repo` on HF — caller MUST
+    pass model=None (this function asserts) to avoid duplicating the HF init
+    on disk. "best" saves keep at most one file per feat_type. "final" saves
+    are only used in frozen-probe mode.
     """
     if step == 0 and model is not None:
         raise AssertionError(
-            "Refusing to save backbone at step 0: it equals the HF init "
-            f"({cfg.model_repo}) and would waste ~375 MB. Caller must "
-            "pass model=None for the step-0 best checkpoint."
+            f"Refusing to save backbone at step 0: it equals the HF init ({cfg.model_repo}). "
+            "Caller must pass model=None for the step-0 best checkpoint."
         )
 
     t_last = cfg.n_timesteps - 1
@@ -143,12 +137,8 @@ def _save_resume_state(
 ) -> Path:
     """Save optimizer/scheduler/RNG state for crash-recovery resume.
 
-    Written to a SEPARATE file (`resume_state.pt`) — overwrites itself
-    every save (single-file, bounded disk footprint). ~few-hundred-MB
-    for finetune (Adam stores two fp32 moments per param across 96.5M
-    params), much smaller for frozen probe. Delete this file once the
-    run completes successfully — it's only needed to resume a partial
-    run, not to publish or reload the trained model.
+    Single self-overwriting file (`resume_state.pt`); safe to delete
+    once the run completes successfully.
     """
     path = run_dir / "resume_state.pt"
     tmp_path = run_dir / ".resume_state.pt.tmp"
