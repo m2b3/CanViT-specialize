@@ -25,7 +25,8 @@ For the fused **CanViT + probe** pair (recommended for downstream eval), see `ca
 `COMET_API_KEY`, `COMET_WORKSPACE`, and `ADE20K_ROOT` must be set before training.
 
 ```bash
-cp .envrc.nibi .envrc && direnv allow   # or .envrc.crockett
+cp .envrc.example .envrc && direnv allow
+# Edit .envrc to point at your dataset / Comet workspace.
 ```
 
 ### ADE20K segmentation probe (frozen backbone)
