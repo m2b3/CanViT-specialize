@@ -13,6 +13,12 @@ from canvit_specialize.training.ade20k.config import ProbeTrainBase
 
 def make_ade20k_loaders(cfg: ProbeTrainBase) -> tuple[DataLoader, DataLoader]:
     """Build ADE20K train/val data loaders with DINOv3-aligned augmentation."""
+    if not cfg.ade20k_root.exists():
+        raise FileNotFoundError(
+            f"ADE20K root not found: {cfg.ade20k_root}. "
+            "Set ADE20K_ROOT or pass --ade20k-root."
+        )
+
     _train_aug = make_segmentation_train_transforms(
         img_size=cfg.scene_size,
         random_img_size_ratio_range=list(cfg.aug_scale_range),

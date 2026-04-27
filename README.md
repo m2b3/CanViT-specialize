@@ -29,7 +29,7 @@ cp .envrc.example .envrc && direnv allow
 # Edit .envrc to point at your dataset / Comet workspace.
 ```
 
-### ADE20K segmentation probe (frozen backbone)
+### ADE20K segmentation probe (frozen CanViT)
 
 ```bash
 uv run python -m canvit_specialize.training.ade20k train \

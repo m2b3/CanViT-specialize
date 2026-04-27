@@ -18,7 +18,7 @@ def _default_ade20k_root() -> Path:
         return Path(root)
     if tmpdir := os.environ.get("SLURM_TMPDIR"):
         return Path(tmpdir) / "ADEChallengeData2016"
-    raise ValueError("ADE20K_ROOT env var not set and not running under SLURM")
+    return Path("/datasets/ADE20k/ADEChallengeData2016")
 
 
 CanvasFeatureType = Literal["canvas_hidden", "recon_normalized"]
@@ -92,11 +92,11 @@ class Config(ProbeTrainBase):
     max_vp_scale: float = 1.0
     train_start_full: bool = False
 
-    # Internal/legacy ADE20K full-backbone training path; not part of the paper workflow.
+    # Internal/legacy ADE20K full-CanViT fine-tuning path; not part of the paper workflow.
     finetune: bool = False
     init_probe_repo: str | None = None
     # Crash-recovery: write resume_state.pt (optimizer + scheduler + RNG +
-    # backbone) every val. Single overwriting file, ~few-hundred MB on
+    # CanViT model) every val. Single overwriting file, ~few-hundred MB on
     # finetune (Adam moments). Off by default — opt in only when you
     # actually need to be able to resume a partial run.
     save_resume_state: bool = False

@@ -1,6 +1,6 @@
 """CanViT ImageNet-1k finetuning on TPU v6e (PyTorch/XLA SPMD).
 
-Trains CanViTForImageClassification (backbone + LN → Linear head) on IN1k.
+Trains CanViTForImageClassification (CanViT + LN → Linear head) on IN1k.
 Head initialized from fused DINOv3 probe. All parameters trainable.
 """
 

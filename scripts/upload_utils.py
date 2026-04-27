@@ -1,4 +1,4 @@
-"""Shared HuggingFace Hub upload logic for probe + finetuned-backbone push scripts."""
+"""Shared HuggingFace Hub upload logic for probe and finetuned-model push scripts."""
 
 import json
 import logging

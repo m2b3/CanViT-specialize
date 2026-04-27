@@ -52,11 +52,11 @@ def _make_probe(
 ) -> ProbeState:
     """Build a probe head + its optimizer.
 
-    init_from_repo: HF Hub repo ID to load probe weights from before full-backbone training.
+    init_from_repo: repo ID or local directory to load probe weights from before full-CanViT fine-tuning.
         When set, `dim`, `dropout`, and `use_ln` are unused — the loaded
         probe's saved config is authoritative. The first forward will assert
         that the loaded probe's embed_dim matches the actual feature dim.
-    extra_params: additional params to include in the optimizer (e.g. backbone
+    extra_params: additional params to include in the optimizer (e.g. CanViT
         params during finetuning). Uses the same LR as the head.
     """
     if init_from_repo:
@@ -89,16 +89,16 @@ def _save_probe_checkpoint(
     is_best: bool,
     model: CanViTForPretrainingHFHub | None = None,
 ) -> Path:
-    """Save probe head + (optional) backbone state for finetune mode.
+    """Save probe head + optional CanViT state for finetune mode.
 
-    At step 0, the backbone equals `cfg.model_repo` on HF — caller MUST
-    pass model=None (this function asserts) to avoid duplicating the HF init
+    At step 0, the CanViT model equals the `cfg.model_repo` initialization — caller MUST
+    pass model=None (this function asserts) to avoid duplicating that state
     on disk. "best" saves keep at most one file per feat_type. "final" saves
     are only used in frozen-probe mode.
     """
     if step == 0 and model is not None:
         raise AssertionError(
-            f"Refusing to save backbone at step 0: it equals the HF init ({cfg.model_repo}). "
+            f"Refusing to save CanViT state at step 0: it equals the initialization ({cfg.model_repo}). "
             "Caller must pass model=None for the step-0 best checkpoint."
         )
 
@@ -158,7 +158,7 @@ def _save_resume_state(
         },
     }
     if model is not None:
-        # Backbone weights are needed to bring the model to the same point
+        # CanViT weights are needed to bring the model to the same point
         # the optimizer/scheduler state corresponds to.
         data["model_state_dict"] = model.state_dict()
     run_dir.mkdir(parents=True, exist_ok=True)
@@ -184,7 +184,7 @@ def train(cfg: Config) -> None:
     if cfg.finetune and cfg.weight_decay > 5e-4:
         log.warning(
             f"finetune mode with weight_decay={cfg.weight_decay} — this is the frozen-probe "
-            f"default and is typically too aggressive for full FT (can destabilize backbone "
+            f"default and is typically too aggressive for full FT (can destabilize CanViT "
             f"weights, per IN1k FT precedent which used 1e-4). Consider --weight-decay 1e-4."
         )
 
@@ -193,12 +193,12 @@ def train(cfg: Config) -> None:
     model = CanViTForPretrainingHFHub.from_pretrained(cfg.model_repo).to(device)
     if cfg.finetune:
         model.train()
-        log.info(f"  FINETUNE mode: backbone trainable ({sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params)")
+        log.info(f"  FINETUNE mode: CanViT trainable ({sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params)")
     else:
         model.eval()
         for p in model.parameters():
             p.requires_grad_(False)
-        log.info(f"  FROZEN mode: backbone frozen ({sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params)")
+        log.info(f"  FROZEN mode: CanViT frozen ({sum(p.numel() for p in model.parameters()) / 1e6:.1f}M params)")
 
     teacher = load_teacher(cfg.teacher_repo, device)
     log.info(f"  teacher: {cfg.teacher_repo}, dim={teacher.embed_dim}")
@@ -211,7 +211,7 @@ def train(cfg: Config) -> None:
     # Probes
     dims = get_feature_dims(canvas_dim=model.canvas_dim, teacher_dim=teacher.embed_dim)
     if cfg.finetune:
-        assert len(cfg.features) == 1, "Fine-tuning supports one feature type (backbone is shared)"
+        assert len(cfg.features) == 1, "Fine-tuning supports one feature type (CanViT model is shared)"
     elif cfg.init_probe_repo is not None:
         raise ValueError(
             f"--init-probe-repo={cfg.init_probe_repo!r} is set but --finetune is not. "
@@ -234,7 +234,7 @@ def train(cfg: Config) -> None:
         loaded_msg = f" (loaded from {init_from_repo})" if init_from_repo else ""
         n_head = sum(p.numel() for p in probe.head.parameters())
         n_opt = sum(p.numel() for g in probe.optimizer.param_groups for p in g['params'])
-        opt_breakdown = f"backbone+head={n_opt:,}" if cfg.finetune else f"head={n_opt:,}"
+        opt_breakdown = f"canvit+head={n_opt:,}" if cfg.finetune else f"head={n_opt:,}"
         log.info(f"  probe[{feat}]: dim={dims[feat]}, head_params={n_head:,}, optimizer={opt_breakdown}{loaded_msg}")
 
     # IoU metrics
@@ -286,9 +286,9 @@ def train(cfg: Config) -> None:
     val_viz_batch: tuple[Tensor, Tensor, CanvasFeatures] | None = None
 
     # Per-group grad norm accumulator, only populated in finetune mode.
-    # Tracks pre-clip backbone vs head L2 norms for diagnostic logging.
+    # Tracks pre-clip CanViT vs head L2 norms for diagnostic logging.
     finetune_norm_acc = {
-        "backbone": torch.zeros((), device=device),
+        "canvit": torch.zeros((), device=device),
         "head": torch.zeros((), device=device),
         "count": 0,
     }
@@ -347,12 +347,12 @@ def train(cfg: Config) -> None:
                 exp.log_curve(f"{feat_type}/val_miou_curve", x=list(range(cfg.n_timesteps)), y=mious, step=step)
 
                 if improved and run_dir:
-                    # Skip backbone snapshot at step 0: identical to the HF init
-                    # at cfg.model_repo. Probe head still saved.
-                    save_backbone = cfg.finetune and step > 0
+                    # Skip CanViT snapshot at step 0: identical to cfg.model_repo.
+                    # Probe head still saved.
+                    save_canvit = cfg.finetune and step > 0
                     _save_probe_checkpoint(
                         run_dir, feat_type, probes[feat_type], step, cfg,
-                        is_best=True, model=model if save_backbone else None,
+                        is_best=True, model=model if save_canvit else None,
                     )
 
             # Optional resume state — opt-in via cfg.save_resume_state, off
@@ -391,12 +391,12 @@ def train(cfg: Config) -> None:
             losses = [ce_loss(logits, masks) for logits in logits_list]
             loss = torch.stack(losses).mean()
             loss.backward()
-            # In finetune mode, also measure pre-clip backbone vs head norms to
+            # In finetune mode, also measure pre-clip model vs head norms to
             # diagnose which side dominates the gradient signal.
             if cfg.finetune:
-                backbone_norm_only = nn.utils.clip_grad_norm_(model.parameters(), float("inf"))
+                model_norm_only = nn.utils.clip_grad_norm_(model.parameters(), float("inf"))
                 head_norm_only = nn.utils.clip_grad_norm_(probe.head.parameters(), float("inf"))
-                finetune_norm_acc["backbone"] += backbone_norm_only.detach()
+                finetune_norm_acc["canvit"] += model_norm_only.detach()
                 finetune_norm_acc["head"] += head_norm_only.detach()
                 finetune_norm_acc["count"] += 1
                 clip_params = list(model.parameters()) + list(probe.head.parameters())
@@ -438,9 +438,9 @@ def train(cfg: Config) -> None:
                 log_dict[f"{name}/grad_norm"] = avg_grad
             if cfg.finetune and finetune_norm_acc["count"] > 0:
                 n = finetune_norm_acc["count"]
-                log_dict["finetune/backbone_grad_norm"] = (finetune_norm_acc["backbone"] / n).item()
+                log_dict["finetune/canvit_grad_norm"] = (finetune_norm_acc["canvit"] / n).item()
                 log_dict["finetune/head_grad_norm"] = (finetune_norm_acc["head"] / n).item()
-                finetune_norm_acc["backbone"].zero_()
+                finetune_norm_acc["canvit"].zero_()
                 finetune_norm_acc["head"].zero_()
                 finetune_norm_acc["count"] = 0
 

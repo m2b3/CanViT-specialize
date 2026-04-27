@@ -31,7 +31,7 @@ class Config:
     checkpoint: Path
     """Local .pt file produced by gcp_in1k_clf_ft training."""
     pretrained_repo: str
-    """HF repo of the pretrained CanViT backbone used at training-time."""
+    """HF repo of the pretrained CanViT checkpoint used at training time."""
     probe_repo: str
     """HF repo of the DINOv3 linear probe fused into the finetuning head."""
     canvas_grid: int
@@ -44,7 +44,7 @@ class Config:
 
 def _remap_state_dict(sd: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
     """Map training keys (`model.*`, `norm.*`, `head.*`) to CanViTForImageClassification
-    keys (`backbone.*`, `norm.*`, `head.*`), dropping pretraining-only prefixes."""
+    keys (`canvit.*`, `norm.*`, `head.*`), dropping pretraining-only prefixes."""
     remapped: dict[str, torch.Tensor] = {}
     skipped = 0
     for k, v in sd.items():
@@ -53,7 +53,7 @@ def _remap_state_dict(sd: dict[str, torch.Tensor]) -> dict[str, torch.Tensor]:
             if any(stripped.startswith(p) for p in _PRETRAINING_PREFIXES):
                 skipped += 1
                 continue
-            remapped[f"backbone.{stripped}"] = v
+            remapped[f"canvit.{stripped}"] = v
         elif k.startswith(("norm.", "head.")):
             remapped[k] = v
         else:
