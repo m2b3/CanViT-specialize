@@ -92,7 +92,7 @@ class Config(ProbeTrainBase):
     max_vp_scale: float = 1.0
     train_start_full: bool = False
 
-    # Fine-tuning (LP-FT: start from trained probe, unfreeze backbone)
+    # Internal/legacy ADE20K full-backbone training path; not part of the paper workflow.
     finetune: bool = False
     init_probe_repo: str | None = None
     # Crash-recovery: write resume_state.pt (optimizer + scheduler + RNG +

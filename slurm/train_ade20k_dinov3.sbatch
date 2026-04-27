@@ -1,6 +1,5 @@
 #!/bin/bash
 #SBATCH --job-name=ade20k-dinov3
-#SBATCH --account=def-skrishna_gpu
 #SBATCH --time=01:00:00
 #SBATCH --gres=gpu:h100:1
 #SBATCH --cpus-per-task=8
@@ -11,6 +10,7 @@
 # DINOv3 baseline probe training at a given resolution.
 # Usage:
 #   sbatch slurm/train_ade20k_dinov3.sbatch --scene-size 512
+#   sbatch --account=my_project_name slurm/train_ade20k_dinov3.sbatch --scene-size 512
 #   sbatch slurm/train_ade20k_dinov3.sbatch --scene-size 256 --teacher-repo facebook/dinov3-vits16-pretrain-lvd1689m
 
 set -eu  # NOT -x: would trace secret exports (HF_TOKEN, etc.) into logs

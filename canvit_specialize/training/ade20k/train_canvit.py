@@ -52,7 +52,7 @@ def _make_probe(
 ) -> ProbeState:
     """Build a probe head + its optimizer.
 
-    init_from_repo: HF Hub repo ID to load probe weights from (for LP-FT).
+    init_from_repo: HF Hub repo ID to load probe weights from before full-backbone training.
         When set, `dim`, `dropout`, and `use_ln` are unused — the loaded
         probe's saved config is authoritative. The first forward will assert
         that the loaded probe's embed_dim matches the actual feature dim.
@@ -215,7 +215,7 @@ def train(cfg: Config) -> None:
     elif cfg.init_probe_repo is not None:
         raise ValueError(
             f"--init-probe-repo={cfg.init_probe_repo!r} is set but --finetune is not. "
-            f"Loading a pretrained probe only makes sense in finetune mode (LP-FT). "
+            f"Loading a pretrained probe only makes sense in finetune mode. "
             f"Pass --finetune to enable, or unset --init-probe-repo to train a fresh probe."
         )
     extra_params = list(model.parameters()) if cfg.finetune else None

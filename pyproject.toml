@@ -1,7 +1,7 @@
 [project]
 name = "canvit-specialize"
 version = "0.1.0"
-description = "Downstream-task training (probes, LP-FT) for CanViT, with task-specific datasets and metrics"
+description = "Downstream-task training for CanViT: ADE20K probes and IN1k fine-tuning"
 requires-python = ">=3.12"
 dependencies = [
     "canvit-pytorch",
