@@ -1,6 +1,9 @@
-"""Training utilities: viewpoint generation."""
+"""Training utilities: viewpoint generation and run metadata."""
 
-from typing import Literal
+import subprocess
+from dataclasses import asdict
+from datetime import UTC, datetime
+from typing import Any, Literal
 
 import torch
 from canvit_pytorch import Viewpoint
@@ -27,3 +30,22 @@ def make_viewpoints(
         min_scale=min_scale, max_scale=max_scale,
         start_with_full_scene=start_full,
     )
+
+
+def collect_metadata(cfg: Any) -> dict[str, Any]:
+    """Collect portable metadata for saved evaluation/training artifacts."""
+    try:
+        commit = subprocess.check_output(
+            ["git", "rev-parse", "HEAD"],
+            stderr=subprocess.DEVNULL,
+            text=True,
+        ).strip()
+    except (subprocess.CalledProcessError, FileNotFoundError):
+        commit = None
+
+    return {
+        "config": asdict(cfg),
+        "timestamp": datetime.now(UTC).isoformat(),
+        "git_commit": commit,
+        "cuda_device": torch.cuda.get_device_name() if torch.cuda.is_available() else None,
+    }
