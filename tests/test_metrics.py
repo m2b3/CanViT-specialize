@@ -5,10 +5,9 @@ from canvit_specialize.metrics import mIoUAccumulator
 
 
 def _reference_update(num_classes: int, ignore_index: int, preds: torch.Tensor, targets: torch.Tensor) -> tuple[torch.Tensor, torch.Tensor]:
-    """Naive per-image, per-class reference. Identical to pre-vectorization implementation.
+    """Naive per-image, per-class reference for the bincount-based update.
 
-    Used to verify that the bincount-based update produces bit-equivalent counters.
-    Kept ONLY in tests to anchor correctness of the production vectorized path.
+    Test-only; pins bit-equivalence against the production vectorized path.
     """
     intersection = torch.zeros(num_classes)
     union = torch.zeros(num_classes)
