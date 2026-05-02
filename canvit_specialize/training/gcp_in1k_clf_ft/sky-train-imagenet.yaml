@@ -67,7 +67,7 @@ envs:
   RUN_NAME: ""
   # Opt-in debug switches — pass via `--env` when you want them, do NOT declare
   # empty defaults here: torch's _logging._init_logs reads TORCH_LOGS at import
-  # and crashes with AttributeError on empty string (Job 63 FAILED 2026-04-16):
+  # and crashes with AttributeError on empty string:
   #   --env PT_XLA_DEBUG_LEVEL=2 — per-compile Python-frame traces on stderr
   #   --env TORCH_LOGS=recompiles — Dynamo recompile traces
 
