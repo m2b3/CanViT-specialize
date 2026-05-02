@@ -1,8 +1,8 @@
 """ADE20K dataset for evaluation and training.
 
 Supports two resize modes:
-- "squish": Resize to exact square (default, matches manuscript methodology)
-- "center_crop": Resize shortest side + CenterCrop
+- "squish": Resize to exact square (default).
+- "center_crop": Resize shortest side + CenterCrop.
 
 Results are ONLY comparable across models using the same resize_mode.
 """

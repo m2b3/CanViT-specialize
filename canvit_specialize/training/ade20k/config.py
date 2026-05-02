@@ -92,7 +92,7 @@ class Config(ProbeTrainBase):
     max_vp_scale: float = 1.0
     train_start_full: bool = False
 
-    # Internal/legacy ADE20K full-CanViT fine-tuning path; not part of the paper workflow.
+    # Internal/legacy ADE20K full-CanViT fine-tuning path; off by default.
     finetune: bool = False
     init_probe_repo: str | None = None
     # Crash-recovery: write resume_state.pt (optimizer + scheduler + RNG +
