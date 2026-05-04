@@ -14,11 +14,11 @@ For TPU finetuning, see [`gcp_in1k_clf_ft/README.md`](canvit_specialize/training
 
 ```python
 from canvit_pytorch import SegmentationProbe
-probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s1024-c64-in21k")
+probe = SegmentationProbe.from_pretrained("canvit/probe-ade20k-40k-s512-c64-in21k")
 logits = probe(features)  # [B, H, W, D] → [B, num_classes, H, W]
 ```
 
-For the fused **CanViT + probe** pair (recommended for downstream eval), see `canvit_pytorch.CanViTForSemanticSegmentation`.
+For the fused **CanViT + probe** pair, see `canvit_pytorch.CanViTForSemanticSegmentation`.
 
 ## Training
 
