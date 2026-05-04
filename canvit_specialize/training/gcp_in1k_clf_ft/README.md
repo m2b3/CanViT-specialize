@@ -5,7 +5,7 @@ Requires GCP + SkyPilot + a TPU v6e-4 quota.
 
 ## Setup (laptop)
 
-1. `pip install skypilot[gcp]` and `sky check gcp` green.
+1. `uv tool install 'skypilot-nightly[gcp]'` (TPU v6e support requires nightly), then `sky check gcp` green.
 2. `gcloud auth application-default login`.
 3. `~/.sky/config.yaml`:
    ```yaml
