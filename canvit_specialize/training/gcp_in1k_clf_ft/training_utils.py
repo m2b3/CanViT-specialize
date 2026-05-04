@@ -12,16 +12,12 @@ import torch
 log = logging.getLogger("training_utils")
 
 
-# ── Types ──────────────────────────────────────────────────────
-
 class ValLoader(NamedTuple):
     loader: torch.utils.data.DataLoader
     n_glimpses: int
     tag: str      # metric key prefix (e.g., "c2f"). "" = primary.
     display: str  # human-readable label for stdout
 
-
-# ── Checkpointing ─────────────────────────────────────────────
 
 def to_cpu(obj):
     """Recursively move tensors in nested dicts/lists to CPU."""
@@ -87,8 +83,6 @@ def maybe_resume(*, checkpoint_dir: str, clf, optimizer, device) -> tuple[int, f
     return start_step, best_val_acc, comet_key
 
 
-# ── LR schedule ───────────────────────────────────────────────
-
 def make_lr_lambda(*, warmup_steps: int, total_steps: int):
     """Linear warmup → cosine decay. Returns lambda for LambdaLR."""
     def lr_lambda(step: int) -> float:
@@ -98,8 +92,6 @@ def make_lr_lambda(*, warmup_steps: int, total_steps: int):
         return 0.5 * (1.0 + math.cos(math.pi * progress))
     return lr_lambda
 
-
-# ── Early stopping ────────────────────────────────────────────
 
 def should_early_stop(*, val_acc: float, best_val_acc: float, delta: float | None) -> bool:
     """Returns True if val_acc has regressed more than delta below best."""

@@ -15,24 +15,19 @@ from dinov3_in1k_probes.repos import probe_repo
 from PIL import Image
 from tfrecord.reader import tfrecord_loader
 
-# ── Model ────────────────────────────────────────────────────────
 CKPT = resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02")
 
-# ── Image sizes ──────────────────────────────────────────────────
 SCENE_SIZE = 512
 GLIMPSE_SIZE = 128
 CANVAS_GRID = 32
 
-# ── ImageNet normalization ───────────────────────────────────────
 from canvit_pytorch.preprocess import IMAGENET_DEFAULT_MEAN as IMAGENET_MEAN, IMAGENET_DEFAULT_STD as IMAGENET_STD
 
-# ── TFRecord schema ─────────────────────────────────────────────
 TFRECORD_DESCRIPTION = {
     "image/encoded": "byte",
     "image/class/label": "int",
 }
 
-# ── Transform pipelines ─────────────────────────────────────────
 TRAIN_TRANSFORM = T.Compose([
     T.RandomResizedCrop(SCENE_SIZE, scale=(0.2, 1.0)),  # BILINEAR (default) — matches pretraining
     T.RandomHorizontalFlip(),
@@ -49,8 +44,6 @@ VAL_TRANSFORM = T.Compose([
     T.Normalize(mean=IMAGENET_MEAN, std=IMAGENET_STD),
 ])
 
-
-# ── Data loading ─────────────────────────────────────────────────
 
 def decode_tfrecord(features: dict, transform=None) -> tuple[torch.Tensor, int]:
     """Decode a TFRecord into (image_tensor, label). Labels are 0-indexed."""
@@ -94,8 +87,6 @@ def find_shards(data_dir: str, split: str = "train") -> list[Path]:
     return shards
 
 
-# ── Viewpoint policies ──────────────────────────────────────────
-
 from typing import Literal
 
 from canvit_pytorch.policies import coarse_to_fine_viewpoints
@@ -115,8 +106,6 @@ def c2f_viewpoints(
     vps = coarse_to_fine_viewpoints(batch_size, device, n_viewpoints)
     return [(vp.centers, vp.scales) for vp in vps]
 
-
-# ── Multi-glimpse DataLoader ───────────────────────────────────
 
 def make_multi_glimpse_dataloader(
     data_dir: str,
@@ -184,8 +173,6 @@ def make_multi_glimpse_dataloader(
         prefetch_factor=2 if num_workers > 0 else None,
     )
 
-
-# ── Model ────────────────────────────────────────────────────────
 
 from canvit_pytorch import CanViTForImageClassification
 

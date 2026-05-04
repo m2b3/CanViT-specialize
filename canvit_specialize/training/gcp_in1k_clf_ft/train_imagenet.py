@@ -40,9 +40,6 @@ VAL_IMAGES = 50_000
 log.info("imports done [%.1fs]", time.perf_counter() - _PYTHON_START)
 
 
-# ── Startup diagnostics ───────────────────────────────────────────────────
-
-
 _ENV_ALLOWLIST_PREFIXES = (
     "XLA_", "LIBTPU", "PJRT_", "PT_XLA", "TPU_", "OMP_", "MKL_", "TF_CPP",
     "SKYPILOT_", "PYTORCH_", "NEURON_", "GRPC_",
@@ -88,9 +85,6 @@ def _log_sharding_spec(tensor: torch.Tensor, name: str) -> None:
         spec = f"<error: {e}>"
     log.info("sharding[%s] shape=%s dtype=%s spec=%s",
              name, tuple(tensor.shape), tensor.dtype, spec)
-
-
-# ── SPMD ──────────────────────────────────────────────────────────────────
 
 
 _FIRST_INIT_STATE = True
@@ -144,9 +138,6 @@ def _shard_batch(glimpses, labels, vp_centers, vp_scales, device, mesh):
     return glimpses, labels, vp_centers, vp_scales
 
 
-# ── Comet ─────────────────────────────────────────────────────────────────
-
-
 def _init_comet(*, run_name: str | None, prev_key: str | None):
     if not os.environ.get("COMET_API_KEY"):
         return None
@@ -157,9 +148,6 @@ def _init_comet(*, run_name: str | None, prev_key: str | None):
         kwargs["experiment_key"] = prev_key
         log.info("Continuing Comet experiment: %s", prev_key)
     return comet_ml.start(**kwargs)
-
-
-# ── Training step ─────────────────────────────────────────────────────────
 
 
 def _train_step(
@@ -232,9 +220,6 @@ def _train_step(
     return loss, n_correct, grad_norm, {
         'correct_t0': correct_t0, 'loss_t0': loss_t0, 'loss_tN': loss_tN,
     }
-
-
-# ── Validation ────────────────────────────────────────────────────────────
 
 
 @torch.no_grad()
@@ -342,9 +327,6 @@ def _run_validation(
     return primary_acc
 
 
-# ── Main ──────────────────────────────────────────────────────────────────
-
-
 def train(args: argparse.Namespace) -> float:
     train_start = time.perf_counter()
     log.info("train() entered [%.1fs since Python start]", time.perf_counter() - _PYTHON_START)
@@ -370,7 +352,6 @@ def train(args: argparse.Namespace) -> float:
     log.info("Plan: %d epochs × %d steps/epoch = %d total, N=%d glimpses, chunk=%d",
              args.epochs, steps_per_epoch, total_steps, N, args.chunk_size)
 
-    # ── Data ──
     t0 = time.perf_counter()
     train_loader = make_multi_glimpse_dataloader(
         data_dir=args.data_dir, batch_size=args.batch_size,
@@ -405,13 +386,11 @@ def train(args: argparse.Namespace) -> float:
     log.info("DataLoaders ready (B=%d, %dw, eval_N=%d) [%.1fs]",
              args.batch_size, args.num_workers, eval_n, time.perf_counter() - t0)
 
-    # ── Model ──
     t0 = time.perf_counter()
     clf = load_classifier(device=device)
     optimizer = torch.optim.AdamW(clf.parameters(), lr=args.lr, weight_decay=args.weight_decay)
     log.info("Model + optimizer ready [%.1fs]", time.perf_counter() - t0)
 
-    # ── Resume or init ──
     start_step = 0
     best_val_acc = -1.0
     prev_comet_key: str | None = None
@@ -427,7 +406,6 @@ def train(args: argparse.Namespace) -> float:
         )
         log.info("Resume [%.1fs] → step %d, best_val_acc=%.4f", time.perf_counter() - t0, start_step, best_val_acc)
 
-    # ── Comet ──
     t0 = time.perf_counter()
     exp = _init_comet(run_name=args.run_name, prev_key=prev_comet_key)
     if exp:
@@ -452,13 +430,11 @@ def train(args: argparse.Namespace) -> float:
 
     comet_key = exp.get_key() if exp else None
 
-    # ── LR schedule: linear warmup → cosine decay ──
     scheduler = torch.optim.lr_scheduler.LambdaLR(
         optimizer, make_lr_lambda(warmup_steps=args.warmup_steps, total_steps=total_steps))
     for _ in range(start_step):
         scheduler.step()
 
-    # ── XLA compile warmup (runs one real training step) ──
     step_fn = partial(_train_step, chunk_size=args.chunk_size)
     log.info("Compiling XLA graph (N=%d, chunk=%d)...", N, args.chunk_size)
     t0 = time.perf_counter()
@@ -468,7 +444,6 @@ def train(args: argparse.Namespace) -> float:
     torch_xla.sync(wait=True)
     log.info("Compiled [%.1fs]", time.perf_counter() - t0)
 
-    # ── Checkpoint helper ──
     def _ckpt(step: int, filename: str = "latest.pt") -> None:
         if args.checkpoint_dir:
             save_checkpoint(checkpoint_dir=args.checkpoint_dir, step=step, clf=clf,
@@ -486,7 +461,6 @@ def train(args: argparse.Namespace) -> float:
                         n_val_steps=n_val_steps, mesh=mesh,
                         exp=exp, step=0, label="step 0", log_samples=True)
 
-    # ── Training loop ──
     startup_sec = time.perf_counter() - train_start
     log.info("Training from step %d to %d [startup %.1fs]", start_step, total_steps, startup_sec)
 
@@ -578,7 +552,6 @@ def train(args: argparse.Namespace) -> float:
                          (best_val_acc - val_acc) * 100, args.early_stop_delta * 100)
                 break
 
-    # ── Final ──
     torch_xla.sync(wait=True)
     final_step = step + 1
     val_acc = _run_validation(
@@ -596,9 +569,6 @@ def train(args: argparse.Namespace) -> float:
         exp.end()
     log.info("Done. best_val_acc=%.1f%%", best_val_acc * 100)
     return best_val_acc
-
-
-# ── CLI ───────────────────────────────────────────────────────────────────
 
 
 def parse_args() -> argparse.Namespace:
