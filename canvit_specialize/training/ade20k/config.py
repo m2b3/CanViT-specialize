@@ -48,7 +48,7 @@ class ProbeTrainBase:
     ade20k_root: Path = field(default_factory=_default_ade20k_root)
     scene_size: int = 512
 
-    # Training (defaults match DINOv3 linear probing, Appendix D.1)
+    # Training
     batch_size: int = 16
     eval_batch_size: int = 32
     num_workers: int = 4
@@ -62,7 +62,7 @@ class ProbeTrainBase:
     # Probe head
     dropout: float = 0.1
 
-    # Data augmentation (DINOv3 defaults)
+    # Data augmentation
     aug_scale_range: tuple[float, float] = (0.5, 2.0)
     aug_flip_prob: float = 0.5
 

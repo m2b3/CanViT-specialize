@@ -55,14 +55,14 @@ CANVAS_PROBE_COLLECTION = f"{CANVIT_REPO_ROOT}/canvit-ade20k-segmentation-probes
 DINOV3_PROBE_COLLECTION = f"{CANVIT_REPO_ROOT}/dinov3-ade20k-segmentation-probes-pytorch-69d59b1eb69bbb3422f49b4f"
 
 # Batch-mode repo naming: short id per base-model repo. Full name lives in config.json.
-# Old + current flagship CanViT-B names resolve to the same weights (same HF rename).
+# Aliased CanViT-B repo names resolve to the same weights.
 _MODEL_SHORT: dict[str, str] = {
     "facebook/dinov3-vitb16-pretrain-lvd1689m": "dv3b",
     "facebook/dinov3-vits16-pretrain-lvd1689m": "dv3s",
-    # CanViT-B flagship (IN21k). Old + current repo names are aliases for the same weights.
+    # CanViT-B (IN21k).
     resolve_canvit_repo("canvit-vitb16-pretrain-512px-in21k"): "in21k",
     resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02"): "in21k",
-    # CanViT-B continual-pretrained on SA1B (from the IN21k flagship).
+    # CanViT-B continual-pretrained on SA1B.
     resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s1024px-sa1b-dv3b16-2026-02-26-from-in21k-2026-02-02"): "sa1b",
 }
 
@@ -521,7 +521,7 @@ def _run_retrofit(args: Retrofit) -> None:
             repo_id, cfg_json["embed_dim"], cfg_json["num_classes"],
             cfg_json["use_ln"], feat_type, train_cfg,
         )
-        # Re-sanitize: old pushes wrote bare `Infinity`; make it strict-JSON.
+        # Coerce non-finite floats to strict-JSON form.
         fresh_cfg_text = json.dumps(json_sanitize(cfg_json), indent=2)
         cfg_needs_rewrite = fresh_cfg_text != raw_text
 

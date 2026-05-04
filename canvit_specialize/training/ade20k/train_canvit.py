@@ -453,8 +453,7 @@ def train(cfg: Config) -> None:
 
     pbar.close()
 
-    # Final save only for frozen-probe training. In finetune mode the "best"
-    # checkpoint at the most recent improvement step is what we'd publish.
+    # Final save only for frozen-probe training. In finetune mode only "best" is kept.
     if run_dir and not cfg.finetune:
         for feat_type, probe in probes.items():
             _save_probe_checkpoint(
