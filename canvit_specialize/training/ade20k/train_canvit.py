@@ -1,12 +1,8 @@
 """ADE20K canvas probe training.
 
-Trains segmentation probes on frozen CanViT features:
-- ONE probe per feature type, shared weights across timesteps (anytime decoding)
-- Training: loss averaged across timesteps, single backward pass
-- Eval: mIoU computed per timestep, logged as curves
-
-Training protocol aligned with DINOv3's linear probing (Appendix D.1).
-Whole-image inference (no sliding window).
+One probe per feature type, weights shared across timesteps. Loss
+averaged across timesteps; mIoU computed per timestep at eval.
+Whole-image inference.
 """
 
 import logging

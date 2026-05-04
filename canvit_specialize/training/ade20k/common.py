@@ -12,7 +12,7 @@ from canvit_specialize.training.ade20k.config import ProbeTrainBase
 
 
 def make_ade20k_loaders(cfg: ProbeTrainBase) -> tuple[DataLoader, DataLoader]:
-    """Build ADE20K train/val data loaders with DINOv3-aligned augmentation."""
+    """Build ADE20K train/val data loaders."""
     if not cfg.ade20k_root.exists():
         raise FileNotFoundError(
             f"ADE20K root not found: {cfg.ade20k_root}. "
@@ -47,7 +47,7 @@ def make_optimizer_and_scheduler(
     params, *, lr: float, weight_decay: float, max_steps: int,
     warmup_steps: int, warmup_lr_ratio: float,
 ) -> tuple[AdamW, LRScheduler]:
-    """Create AdamW + WarmupOneCycleLR with DINOv3-aligned schedule."""
+    """Create AdamW + WarmupOneCycleLR."""
     optimizer = AdamW(params, lr=lr, weight_decay=weight_decay)
     scheduler = WarmupOneCycleLR(
         optimizer,

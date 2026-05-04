@@ -53,11 +53,7 @@ _ENV_SECRET_SUBSTRINGS = ("KEY", "TOKEN", "SECRET", "PASSWORD", "CREDENTIAL")
 
 
 def _log_environment_diagnostics() -> None:
-    """Dump versions + precision + env vars + device topology before any XLA compile.
-
-    Called once at train() entry so every run's log has enough context to reproduce
-    or diagnose. Env dump is allowlisted to avoid leaking secrets.
-    """
+    """Dump versions + precision + env vars + device topology. Secret-bearing env vars are filtered."""
     import torchvision
     log.info("─── environment diagnostics ───")
     log.info("torch        = %s  (%s)", torch.__version__, torch.__file__)
@@ -103,13 +99,7 @@ _XLA_COMPILE_BASELINE = {"total": 0}
 
 
 def _log_xla_compiles(step: int) -> None:
-    """Emit a warning ONLY when XLA performed a new compile since last call.
-
-    Silent compile-every-step is a classic cause of 2× throughput regressions
-    (dynamic shapes, stray .item(), Python control flow on tensor values).
-    `CompileTime.TotalSamples` is cheap to read (no device sync). Expected
-    steady-state: flat — any delta > 0 means a recompile happened.
-    """
+    """Emit a warning when XLA performs a new compile since last call. Reads CompileTime.TotalSamples."""
     import torch_xla.debug.metrics as met
     data = met.metric_data("CompileTime")
     if data is None:

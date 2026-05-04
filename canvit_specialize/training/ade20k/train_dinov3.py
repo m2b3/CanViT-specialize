@@ -1,10 +1,4 @@
-"""DINOv3 baseline probe training on ADE20K.
-
-No CanViT, no viewpoints, no rollout. Just:
-  resize -> DINOv3 forward -> probe -> loss -> backward
-
-One probe, one resolution, one forward pass per image.
-"""
+"""DINOv3 baseline probe training on ADE20K. One probe, one resolution, one forward pass per image."""
 
 import logging
 import os

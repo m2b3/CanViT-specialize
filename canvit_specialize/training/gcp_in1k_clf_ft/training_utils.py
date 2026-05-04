@@ -37,8 +37,7 @@ def to_cpu(obj):
 def save_checkpoint(*, checkpoint_dir: str, step: int, clf, optimizer,
                     best_val_acc: float, comet_key: str | None,
                     filename: str = "latest.pt", sync_fn=None) -> str:
-    """Atomic checkpoint save. Returns path written. Logs wallclock cost of each
-    phase so the step-cadence overhead is measurable at a glance."""
+    """Atomic checkpoint save. Returns path written. Logs per-phase wallclock."""
     os.makedirs(checkpoint_dir, exist_ok=True)
     path = os.path.join(checkpoint_dir, filename)
     tmp = os.path.join(checkpoint_dir, f".tmp_{filename}_{os.getpid()}_{step}")
