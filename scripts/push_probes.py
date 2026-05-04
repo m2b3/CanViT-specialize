@@ -69,16 +69,10 @@ _MODEL_SHORT: dict[str, str] = {
 
 
 def _extract_state_dict_and_metadata(raw: dict) -> tuple[dict, dict]:
-    """Supports canvas (new + legacy) and DINOv3 probe checkpoint formats."""
+    """Supports canvas and DINOv3 probe checkpoint formats."""
     if "feat_type" in raw:
         sd = raw["probe_state_dict"]
         meta = {k: v for k, v in raw.items() if k != "probe_state_dict"}
-        return sd, meta
-    if "probe_state_dicts" in raw:
-        sd = raw["probe_state_dicts"]["canvas_hidden"]
-        meta = {k: v for k, v in raw.items() if k != "probe_state_dicts"}
-        meta["feat_type"] = "canvas_hidden"
-        meta["_legacy_format"] = True
         return sd, meta
     if "probe_state_dict" in raw:
         sd = raw["probe_state_dict"]
