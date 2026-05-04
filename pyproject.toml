@@ -17,7 +17,6 @@ dependencies = [
     "pandas>=2.0.0",
     "scikit-learn>=1.4.0",
     "transformers>=4.50.0",
-    "pypatree>=0.4.0",
 ]
 
 [build-system]
@@ -53,9 +52,9 @@ cuda = [
 # TPU/CPU-only path for canvit_specialize/training/gcp_in1k_clf_ft/.
 # Install on the TPU VM with: uv sync --group gcp-in1k-finetune --no-group cuda
 #
-# The `+cpu` local-version pin is load-bearing: whl/cpu publishes multiple
-# variants per release with different platform coverage; without the pin, uv
-# can pick a variant with no linux_x86_64 cpython3.12 wheel and fail install.
+# Pin to `+cpu` local version: whl/cpu publishes multiple variants per
+# release; without the pin, uv may pick one without a linux_x86_64
+# cpython3.12 wheel and fail install.
 gcp-in1k-finetune = [
     "torch==2.9.0+cpu; sys_platform == 'linux'",
     "torch==2.9.0; sys_platform != 'linux'",
@@ -65,8 +64,8 @@ gcp-in1k-finetune = [
     "tfrecord",
     # dinov3-in1k-probes is needed by gcp_in1k_clf_ft/shared.py but its
     # base pyproject pins torchvision>=0.24.1, which would conflict with
-    # the load-bearing torchvision==0.24.0+cpu pin tied to torch_xla 2.9.0
-    # compat. Install it on the TPU VM separately:
+    # the torchvision==0.24.0+cpu pin tied to torch_xla 2.9.0 ABI compat.
+    # Install it on the TPU VM separately:
     #   uv pip install --no-deps "dinov3-in1k-probes @ git+https://github.com/m2b3/dinov3-in1k-probes.git"
 ]
 
@@ -79,6 +78,12 @@ typeCheckingMode = "standard"
 
 [tool.ruff]
 line-length = 120
+
+[tool.ruff.lint.per-file-ignores]
+# These two files deliberately interleave logger setup + heavy imports so
+# the import wall-time is timed and logged (TPU cold start is slow).
+"canvit_specialize/training/gcp_in1k_clf_ft/shared.py" = ["E402"]
+"canvit_specialize/training/gcp_in1k_clf_ft/train_imagenet.py" = ["E402"]
 
 [tool.uv]
 # `cuda` in default-groups so `uv sync` (no flags) gets CUDA torch by default.
