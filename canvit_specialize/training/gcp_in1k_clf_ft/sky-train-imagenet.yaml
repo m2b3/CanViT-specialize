@@ -37,9 +37,10 @@ resources:
 # local code + every dep.
 workdir: .
 
-# Checkpoints: MOUNT_CACHED writes to local disk, syncs to GCS async (rclone,
-# not gcsfuse) — avoids gcsfuse auth-expiry crashes. Bucket pinned to
-# us-central1 so checkpoints survive EAGER_NEXT_REGION failover.
+# Checkpoints: MOUNT_CACHED (rclone-backed local-disk + async GCS sync).
+# Don't swap to gcsfuse here — its auth tokens can expire mid-job and
+# crash the writer. Bucket pinned to us-central1 so checkpoints survive
+# EAGER_NEXT_REGION failover.
 # EDIT the source below to point at your own us-central1 GCS bucket.
 file_mounts:
   /ckpt:
@@ -71,8 +72,8 @@ envs:
   #   --env PT_XLA_DEBUG_LEVEL=2 — per-compile Python-frame traces on stderr
   #   --env TORCH_LOGS=recompiles — Dynamo recompile traces
 
-  # Flagship HPs (match the published checkpoint). LR should be scaled
-  # linearly with batch size if changed.
+  # HPs for the published checkpoint. Scale LR linearly with batch size
+  # if changed.
   BATCH_SIZE: "256"
   EPOCHS: "20"
   LR: "2.5e-5"
