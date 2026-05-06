@@ -39,8 +39,7 @@ uv run python -m canvit_specialize.training.ade20k train \
 ### DINOv3 baseline probe
 
 ```bash
-uv run python -m canvit_specialize.training.ade20k train-dinov3-probe \
-  --scene-size 512 --resolution 512
+uv run python -m canvit_specialize.training.ade20k train-dinov3-probe
 ```
 
 ### IN1k classification finetuning on GCP TPU v6e
