@@ -33,13 +33,14 @@ cp .envrc.example .envrc && direnv allow
 
 ```bash
 uv run python -m canvit_specialize.training.ade20k train \
-  --scene-size 1024 --canvas-grid 64
+  --scene-size 512 --canvas-grid 64
 ```
 
 ### DINOv3 baseline probe
 
 ```bash
-uv run python -m canvit_specialize.training.ade20k train-dinov3-probe
+uv run python -m canvit_specialize.training.ade20k train-dinov3-probe \
+  --scene-size 512 --resolution 512
 ```
 
 ### IN1k classification finetuning on GCP TPU v6e
