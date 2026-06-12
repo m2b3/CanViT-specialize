@@ -18,7 +18,7 @@ Usage:
         --probe PATH --repo-id canvit/probe-ade20k-... [--public] [--dry-run]
 
     uv run python scripts/push_probes.py batch \
-        --probe-dir PATH [--owner canvit] [--public] [--dry-run]
+        --probe-dir PATH [--match GLOB] [--owner canvit] [--public] [--dry-run]
 
     uv run python scripts/push_probes.py retrofit \
         --repo-ids canvit/probe-ade20k-... [... more ...] [--dry-run]
@@ -26,6 +26,7 @@ Usage:
     uv run python scripts/push_probes.py reorder [--dry-run]
 """
 
+import fnmatch
 import json
 import logging
 import math
@@ -39,6 +40,11 @@ import tyro
 from huggingface_hub import HfApi, hf_hub_download
 
 from canvit_pytorch import CANVIT_REPO_ROOT, resolve_canvit_repo
+from canvit_pytorch.checkpoints import (
+    ABLATION_MODEL_SHORTS,
+    ade20k_dinov3_probe_name,
+    ade20k_probe_name,
+)
 from canvit_pytorch.probes import SegmentationProbe
 from scripts.upload_utils import (
     json_sanitize,
@@ -64,6 +70,8 @@ _MODEL_SHORT: dict[str, str] = {
     resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02"): "in21k",
     # CanViT-B continual-pretrained on SA1B.
     resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s1024px-sa1b-dv3b16-2026-02-26-from-in21k-2026-02-02"): "sa1b",
+    # Pretraining-ablation checkpoints.
+    **ABLATION_MODEL_SHORTS,
 }
 
 
@@ -141,18 +149,21 @@ def derive_repo_id(owner: str, meta: dict) -> str:
 
     if _resolve_feat_type(meta) == "dinov3_spatial":
         short = _MODEL_SHORT[cfg["model"]]
-        return f"{owner}/probe-ade20k-{steps_k}k-{short}-{cfg['resolution']}px"
+        name = ade20k_dinov3_probe_name(short, resolution=cfg["resolution"], steps_k=steps_k)
+        return f"{owner}/{name}"
 
     short = _MODEL_SHORT.get(cfg["model_repo"])
     assert short is not None, (
         f"Unknown model_repo {cfg['model_repo']!r} — add to _MODEL_SHORT."
     )
-    return f"{owner}/probe-ade20k-{steps_k}k-s{cfg['scene_size']}-c{cfg['canvas_grid']}-{short}"
+    name = ade20k_probe_name(short, scene=cfg["scene_size"], grid=cfg["canvas_grid"], steps_k=steps_k)
+    return f"{owner}/{name}"
 
 
 
 def canvas_probe_note(cfg: dict) -> str:
-    return f"CanViT, {cfg['scene_size']}px scene, {cfg['canvas_grid']}×{cfg['canvas_grid']} canvas grid"
+    short = _MODEL_SHORT[cfg["model_repo"]]
+    return f"CanViT {short}, {cfg['scene_size']}px scene, {cfg['canvas_grid']}×{cfg['canvas_grid']} canvas grid"
 
 
 def dinov3_probe_note(cfg: dict) -> str:
@@ -424,6 +435,8 @@ class Batch:
     """Push every probe under `probe_dir`, auto-deriving repo_ids."""
     probe_dir: Path
     owner: str = CANVIT_REPO_ROOT
+    match: str = "*"
+    """fnmatch pattern on subdirectory names; non-matching run dirs are not loaded."""
     public: bool = False
     dry_run: bool = False
 
@@ -462,9 +475,12 @@ def _run_single(args: Single) -> None:
 
 def _run_batch(args: Batch) -> None:
     assert args.probe_dir.is_dir(), f"Not a directory: {args.probe_dir}"
-    probe_dirs = sorted(d for d in args.probe_dir.iterdir() if d.is_dir())
-    log.info("%s %d probe directories in %s",
-             "DRY RUN:" if args.dry_run else "Pushing", len(probe_dirs), args.probe_dir)
+    probe_dirs = sorted(
+        d for d in args.probe_dir.iterdir()
+        if d.is_dir() and fnmatch.fnmatch(d.name, args.match)
+    )
+    log.info("%s %d probe directories in %s (match=%r)",
+             "DRY RUN:" if args.dry_run else "Pushing", len(probe_dirs), args.probe_dir, args.match)
     touched_feat_types: set[str] = set()
     for d in probe_dirs:
         try:

@@ -88,8 +88,8 @@ wheels = [
 
 [[package]]
 name = "canvit-pytorch"
-version = "0.1.9"
-source = { git = "https://github.com/m2b3/CanViT-PyTorch.git#7937b73b97a8896ba10b89b3c70af5f38247f22f" }
+version = "0.1.10"
+source = { git = "https://github.com/m2b3/CanViT-PyTorch.git?branch=ablation-checkpoint-registry#0d82e551895c2a37cb5844434c2c01c60f263398" }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "numpy" },
@@ -143,7 +143,7 @@ gcp-in1k-finetune = [
 
 [package.metadata]
 requires-dist = [
-    { name = "canvit-pytorch", git = "https://github.com/m2b3/CanViT-PyTorch.git" },
+    { name = "canvit-pytorch", git = "https://github.com/m2b3/CanViT-PyTorch.git?branch=ablation-checkpoint-registry" },
     { name = "comet-ml", specifier = ">=3.30.0" },
     { name = "dinov3", git = "https://github.com/facebookresearch/dinov3.git?rev=54694f7627fd815f62a5dcc82944ffa6153bbb76" },
     { name = "huggingface-hub", specifier = ">=0.20.0" },

@@ -101,7 +101,8 @@ url = "https://download.pytorch.org/whl/cpu"
 explicit = true
 
 [tool.uv.sources]
-canvit-pytorch = { git = "https://github.com/m2b3/CanViT-PyTorch.git" }
+# TEMPORARY (flip back to default branch when ablation-checkpoint-registry merges):
+canvit-pytorch = { git = "https://github.com/m2b3/CanViT-PyTorch.git", branch = "ablation-checkpoint-registry" }
 dinov3 = { git = "https://github.com/facebookresearch/dinov3.git", rev = "54694f7627fd815f62a5dcc82944ffa6153bbb76" }
 # For the TPU finetune group, pull torch/torchvision from whl/cpu so the
 # nvidia_* CUDA satellites never land on a GPU-less TPU VM.
