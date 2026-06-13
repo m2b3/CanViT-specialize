@@ -88,8 +88,8 @@ wheels = [
 
 [[package]]
 name = "canvit-pytorch"
-version = "0.1.9"
-source = { git = "https://github.com/m2b3/CanViT-PyTorch.git#7937b73b97a8896ba10b89b3c70af5f38247f22f" }
+version = "0.1.10"
+source = { git = "https://github.com/m2b3/CanViT-PyTorch.git#f4c813617e33420d82fcaab5d95ecb819988f7d0" }
 dependencies = [
     { name = "huggingface-hub" },
     { name = "numpy" },
