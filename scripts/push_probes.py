@@ -42,6 +42,7 @@ from huggingface_hub import HfApi, hf_hub_download
 from canvit_pytorch import CANVIT_REPO_ROOT, resolve_canvit_repo
 from canvit_pytorch.checkpoints import (
     ABLATION_MODEL_SHORTS,
+    PRETRAIN_MODEL_SHORTS,
     ade20k_dinov3_probe_name,
     ade20k_probe_name,
 )
@@ -65,12 +66,9 @@ DINOV3_PROBE_COLLECTION = f"{CANVIT_REPO_ROOT}/dinov3-ade20k-segmentation-probes
 _MODEL_SHORT: dict[str, str] = {
     "facebook/dinov3-vitb16-pretrain-lvd1689m": "dv3b",
     "facebook/dinov3-vits16-pretrain-lvd1689m": "dv3s",
-    # CanViT-B (IN21k).
+    # Legacy alias for the IN21k flagship weights.
     resolve_canvit_repo("canvit-vitb16-pretrain-512px-in21k"): "in21k",
-    resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02"): "in21k",
-    # CanViT-B continual-pretrained on SA1B.
-    resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s1024px-sa1b-dv3b16-2026-02-26-from-in21k-2026-02-02"): "sa1b",
-    # Pretraining-ablation checkpoints.
+    **PRETRAIN_MODEL_SHORTS,  # flagship (in21k), in1k, sa1b
     **ABLATION_MODEL_SHORTS,
 }
 

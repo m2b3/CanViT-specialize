@@ -10,12 +10,12 @@ import numpy as np
 import torch
 import torchvision.transforms.v2 as T
 
-from canvit_pytorch import resolve_canvit_repo
+from canvit_pytorch.checkpoints import FLAGSHIP_PRETRAIN_REPO
 from dinov3_in1k_probes.repos import probe_repo
 from PIL import Image
 from tfrecord.reader import tfrecord_loader
 
-CKPT = resolve_canvit_repo("canvitb16-add-vpe-pretrain-g128px-s512px-in21k-dv3b16-2026-02-02")
+CKPT = FLAGSHIP_PRETRAIN_REPO
 
 SCENE_SIZE = 512
 GLIMPSE_SIZE = 128
